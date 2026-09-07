@@ -1,0 +1,114 @@
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Roboto, sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  user-select: none;
+}
+
+/* keep text selectable where it matters */
+input, textarea, pre, [contenteditable] {
+  user-select: text;
+}
+
+/* thin, arrowless scrollbars everywhere */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f4d transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f4d;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #52525f;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner,
+::-webkit-scrollbar-button {
+  background: transparent;
+  width: 0;
+  height: 0;
+}
+
+html, body, #app {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* provider wrappers (n-config-provider / n-message-provider) must not break the height chain */
+#app > * {
+  height: 100%;
+}
+
+body {
+  background: #101014;
+  color: #e5e5ea;
+}
+
+/* Vue Flow dark adjustments */
+.vue-flow {
+  background: #101014;
+}
+.vue-flow__edge-path {
+  stroke: #6b7280;
+  stroke-width: 2;
+}
+.vue-flow__edge.selected .vue-flow__edge-path {
+  stroke: #60a5fa;
+}
+.vue-flow__handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #101014;
+}
+.vue-flow__handle.port-video { background: #4ade80; }
+.vue-flow__handle.port-audio { background: #f472b6; }
+.vue-flow__handle.port-av { background: #60a5fa; }
+.vue-flow__minimap {
+  background: #18181d;
+}
+
+/* workflow nodes */
+.wf-node {
+  min-width: 150px;
+  border-radius: 8px;
+  background: #1c1c22;
+  border: 1px solid #33333d;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 40%);
+}
+.wf-node.selected { border-color: #60a5fa; }
+.wf-node.has-error { border-color: #ef4444; }
+.wf-node.is-ghost { border-color: #f59e0b; border-style: dashed; }
+.wf-node__header {
+  padding: 6px 10px;
+  border-bottom: 1px solid #33333d;
+  font-weight: 600;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.wf-node__header.kind-asset { background: #17304a; }
+.wf-node__header.kind-source { background: #1a3d3d; }
+.wf-node__header.kind-filter { background: #1f3d2b; }
+.wf-node__header.kind-raw { background: #3d2b1f; }
+.wf-node__header.kind-stage { background: #3a2d50; }
+.wf-node__header.kind-output { background: #4a1730; }
+.wf-node__body { padding: 8px 10px; color: #c7c7d1; word-break: break-all; }
+.wf-node__ports { padding: 4px 0 6px; }
+.wf-node__port {
+  position: relative;
+  padding: 2px 12px;
+  color: #9ca3af;
+  font-size: 11px;
+}
+.wf-node__port--out { text-align: right; }
