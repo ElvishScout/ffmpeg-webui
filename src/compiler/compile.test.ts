@@ -184,6 +184,17 @@ describe('compileGraph', () => {
     expect(job!.segments[0].args.join(' ')).toContain('-loop 1 -framerate 30 -i in0.png')
   })
 
+  it('does not add -loop for animated images (gif demuxer rejects it)', () => {
+    const a = node({ kind: 'asset', assetRef: { id: 'g', filename: 'anim.gif', size: 1, mime: 'image/gif' } })
+    const o = node({ kind: 'output', filename: 'out' })
+    const g = graph([a, o], [edge(a.id, 'out-0', o.id, 'in-0')])
+    const { job } = compileGraph(g)
+    const args = job!.segments[0].args.join(' ')
+    expect(args).not.toContain('-loop')
+    expect(args).not.toContain('-framerate')
+    expect(args).toContain('-i in0.gif')
+  })
+
   it('emits asset input options before -i', () => {
     const a = node({
       kind: 'asset', assetRef: asset('a'),

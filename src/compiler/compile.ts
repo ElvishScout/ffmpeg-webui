@@ -1,4 +1,4 @@
-import type { WorkflowGraph, WorkflowNode, EncodePreset } from '../types/graph'
+import type { WorkflowGraph, WorkflowNode, EncodePreset, AssetRef } from '../types/graph'
 import type { Job, JobSegment, JobInput, JobOutput } from '../types/job'
 import { filterByName } from '../filters/registry'
 import {
@@ -95,6 +95,16 @@ function splitArgs(s: string): string[] {
 }
 
 const isImage = (mime: string) => mime.startsWith('image/')
+
+/**
+ * Animated image formats carry their own frame timing, so they must NOT get
+ * `-loop 1 -framerate N` (those are image2-demuxer options; the gif/apng
+ * demuxers reject `loop` outright with "Option loop not found").
+ */
+const isAnimatedImage = (asset: AssetRef) =>
+  asset.mime === 'image/gif' ||
+  asset.mime === 'image/apng' ||
+  /\.(gif|apng)$/i.test(asset.filename)
 
 export function compileGraph(graph: WorkflowGraph, opts: CompileOptions = {}): CompileResult {
   const validation = validateGraph(graph, { missingAssetIds: opts.missingAssetIds })
@@ -245,7 +255,11 @@ export function compileGraph(graph: WorkflowGraph, opts: CompileOptions = {}): C
     const args: string[] = ['-y']
     for (const input of inputs) {
       if (input.source.kind === 'asset') {
-        if (isImage(input.source.asset.mime) && input.streamLoop === undefined) {
+        if (
+          isImage(input.source.asset.mime) &&
+          !isAnimatedImage(input.source.asset) &&
+          input.streamLoop === undefined
+        ) {
           args.push('-loop', '1', '-framerate', '30')
         }
         if (input.streamLoop !== undefined) args.push('-stream_loop', String(input.streamLoop))
