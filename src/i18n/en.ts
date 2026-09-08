@@ -56,6 +56,7 @@ export default {
     search: "Search filters…",
     special: "Special nodes",
     categories: {
+      source: "Sources",
       transform: "Transform",
       color: "Color",
       overlay: "Overlay / Combine",

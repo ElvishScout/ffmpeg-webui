@@ -46,10 +46,10 @@ export interface WorkflowNode {
   /** kind = asset: which stream of the container to use (default 0) */
   vStream?: number;
   aStream?: number;
-  /** kind = source: lavfi source filter, e.g. "color=c=black:s=1280x720:d=5" */
+  /** kind = source: lavfi source filter, e.g. "color=c=black:s=1280x720:d=5" (generic source only) */
   sourceFilter?: string;
   sourceOutputs?: PortType[];
-  /** kind = filter */
+  /** kind = filter: FILTER_REGISTRY name; kind = source: SOURCE_PRESETS name (spec-driven params) */
   filterName?: string;
   params?: Record<string, unknown>;
   /** dynamic input pad count (filters with inputsFrom) */

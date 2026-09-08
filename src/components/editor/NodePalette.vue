@@ -3,7 +3,13 @@ import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import Input from "../ui/Input.vue";
 import Button from "../ui/Button.vue";
-import { FILTER_REGISTRY, FILTER_CATEGORIES, SPECIAL_NODES } from "../../filters/registry";
+import {
+  FILTER_REGISTRY,
+  FILTER_CATEGORIES,
+  SPECIAL_NODES,
+  SOURCE_PRESETS,
+  type SourceSpec,
+} from "../../filters/registry";
 import { useGraphStore } from "../../stores/graph";
 
 const { t, locale } = useI18n();
@@ -16,12 +22,21 @@ function toggle(cat: string) {
   else collapsed.value.add(cat);
 }
 
-/** One uniform item shape for both special nodes and filters. */
+/** One uniform item shape for special nodes, sources, and filters. */
 interface PaletteItem {
   name: string;
   desc?: { zh: string; en: string };
   special?: (typeof SPECIAL_NODES)[number]["kind"];
+  /** spec-driven lavfi source preset */
+  source?: SourceSpec;
+  /** generic lavfi source node (raw expression) */
+  customSource?: boolean;
 }
+
+const GENERIC_SOURCE = {
+  name: "source",
+  desc: { zh: "自定义 lavfi 源", en: "Custom lavfi source" },
+};
 
 const filtered = computed<{ cat: string; items: PaletteItem[] }[]>(() => {
   const q = search.value.trim().toLowerCase();
@@ -36,11 +51,37 @@ const filtered = computed<{ cat: string; items: PaletteItem[] }[]>(() => {
     desc: s.desc,
     special: s.kind,
   }));
-  return specialItems.length ? [{ cat: "special", items: specialItems }, ...groups] : groups;
+  const sourceItems: PaletteItem[] = [
+    ...(match(GENERIC_SOURCE.name, GENERIC_SOURCE.desc)
+      ? [{ ...GENERIC_SOURCE, customSource: true }]
+      : []),
+    ...SOURCE_PRESETS.filter((s) => match(s.name, s.desc)).map((s) => ({
+      name: s.name,
+      desc: s.desc,
+      source: s,
+    })),
+  ];
+  return [
+    ...(specialItems.length ? [{ cat: "special", items: specialItems }] : []),
+    ...(sourceItems.length ? [{ cat: "source", items: sourceItems }] : []),
+    ...groups,
+  ];
 });
 
 function add(item: PaletteItem) {
-  if (!item.special) {
+  if (item.source) {
+    store.addNode({
+      kind: "source",
+      filterName: item.source.name,
+      params: {},
+    });
+  } else if (item.customSource) {
+    store.addNode({
+      kind: "source",
+      sourceFilter: "",
+      sourceOutputs: ["video"],
+    });
+  } else if (!item.special) {
     store.addNode({ kind: "filter", filterName: item.name, params: {} });
   } else if (item.special === "raw") {
     store.addNode({
@@ -49,21 +90,19 @@ function add(item: PaletteItem) {
       rawInputs: ["video"],
       rawOutputs: ["video"],
     });
-  } else if (item.special === "source") {
-    store.addNode({
-      kind: "source",
-      sourceFilter: "",
-      sourceOutputs: ["video"],
-    });
   } else {
     store.addSinkNode(item.special);
   }
 }
 
 function onDragStart(event: DragEvent, item: PaletteItem) {
-  const payload = item.special
-    ? { type: "special", kind: item.special }
-    : { type: "filter", name: item.name };
+  const payload = item.source
+    ? { type: "source", name: item.source.name }
+    : item.customSource
+      ? { type: "source" }
+      : item.special
+        ? { type: "special", kind: item.special }
+        : { type: "filter", name: item.name };
   event.dataTransfer?.setData("application/ffmpeg-webui", JSON.stringify(payload));
   if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
 }

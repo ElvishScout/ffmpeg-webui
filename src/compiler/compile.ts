@@ -1,6 +1,7 @@
 import type { WorkflowGraph, WorkflowNode, WorkflowEdge, AssetRef } from "../types/graph";
 import type { Job, JobSegment, JobInput, JobOutput } from "../types/job";
-import { filterByName } from "../filters/registry";
+import { filterByName, sourceByName } from "../filters/registry";
+import type { ParamSpec } from "../types/filter";
 import { FORMATS, formatOf, codecArgs } from "./formats";
 import {
   validateGraph,
@@ -37,7 +38,11 @@ function escapeFilterValue(value: string): string {
 /** Serialize one filter node to its filtergraph fragment. */
 export function serializeFilter(node: WorkflowNode): string {
   if (node.kind === "raw") return node.rawFilter?.trim() ?? "";
-  if (node.kind === "source") return node.sourceFilter?.trim() ?? "";
+  if (node.kind === "source") {
+    const spec = node.filterName ? sourceByName.get(node.filterName) : undefined;
+    if (!spec) return node.sourceFilter?.trim() ?? "";
+    return serializeParams(spec.name, spec.params, node.params ?? {});
+  }
   const spec = node.filterName ? filterByName.get(node.filterName) : undefined;
   if (!spec) return "";
   const params = node.params ?? {};
@@ -45,15 +50,23 @@ export function serializeFilter(node: WorkflowNode): string {
     const key = spec.outputsFrom ?? spec.inputsFrom!;
     return `${spec.name}=${Number(params[key] ?? spec.params.find((p) => p.key === key)?.default ?? 2)}`;
   }
+  return serializeParams(spec.name, spec.params, params);
+}
+
+function serializeParams(
+  name: string,
+  specs: ParamSpec[],
+  params: Record<string, unknown>,
+): string {
   const parts: string[] = [];
-  for (const p of spec.params) {
+  for (const p of specs) {
     let value = params[p.key];
     if (value === undefined || value === null || value === "") continue;
     if (p.type === "boolean") value = value ? 1 : 0;
     if (typeof value === "number") value = String(value);
     parts.push(`${p.key}=${escapeFilterValue(String(value))}`);
   }
-  return parts.length ? `${spec.name}=${parts.join(":")}` : spec.name;
+  return parts.length ? `${name}=${parts.join(":")}` : name;
 }
 
 function ensureExt(filename: string, ext: string): string {

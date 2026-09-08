@@ -56,6 +56,7 @@ export default {
     search: "搜索 filter…",
     special: "特殊节点",
     categories: {
+      source: "虚拟源",
       transform: "变换",
       color: "调色",
       overlay: "叠加/组合",

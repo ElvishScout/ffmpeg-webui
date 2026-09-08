@@ -10,7 +10,7 @@ import Tag from "../ui/Tag.vue";
 import Alert from "../ui/Alert.vue";
 import { useGraphStore } from "../../stores/graph";
 import { useAssetsStore } from "../../stores/assets";
-import { filterByName } from "../../filters/registry";
+import { filterByName, sourceByName } from "../../filters/registry";
 import { nodeDisplayName } from "../../compiler/validate";
 import { FORMATS, formatOf } from "../../compiler/formats";
 import { matchCandidates } from "../../data/match";
@@ -26,6 +26,11 @@ const node = computed(() => store.nodes.find((n) => n.id === store.selectedId) ?
 const spec = computed(() =>
   node.value?.kind === "filter" && node.value.filterName
     ? filterByName.get(node.value.filterName)
+    : undefined,
+);
+const sourceSpec = computed(() =>
+  node.value?.kind === "source" && node.value.filterName
+    ? sourceByName.get(node.value.filterName)
     : undefined,
 );
 
@@ -253,54 +258,71 @@ const fmtSize = (n: number) =>
 
       <!-- source -->
       <div v-else-if="node.kind === 'source'" class="flex flex-col gap-3">
-        <Field :label="t('inspector.sourceFilter')">
-          <Input
-            :model-value="node.sourceFilter ?? ''"
-            type="textarea"
-            placeholder="color=c=black:s=1280x720:d=5"
-            @update:model-value="(v: string) => store.updateNode(node!.id, { sourceFilter: v })"
-          />
-        </Field>
-        <Field :label="t('inspector.rawOutputs')">
-          <div class="pads">
-            <div v-for="(p, i) in node.sourceOutputs ?? []" :key="i" class="pads__row">
-              <Select
-                :model-value="p"
-                :options="portOptions"
-                style="width: 110px"
-                @update:model-value="
-                  (v: string) => {
-                    const arr = [...(node!.sourceOutputs ?? [])];
-                    arr[i] = v as PortType;
-                    store.updateNode(node!.id, { sourceOutputs: arr });
-                  }
-                "
-              />
-              <Button
-                size="tiny"
-                variant="ghost"
-                @click="
-                  store.updateNode(node!.id, {
-                    sourceOutputs: (node!.sourceOutputs ?? []).filter((_, j) => j !== i),
-                  })
-                "
-                >✕</Button
-              >
+        <template v-if="sourceSpec">
+          <Field v-for="p in sourceSpec.params" :key="p.key">
+            <template #label>
+              {{ p.key }}
+              <span v-if="p.desc" class="param-desc">{{
+                locale === "zh" ? p.desc.zh : p.desc.en
+              }}</span>
+            </template>
+            <ParamField
+              :spec="p"
+              :value="node.params?.[p.key]"
+              @update="(v: unknown) => setParam(p.key, v)"
+            />
+          </Field>
+        </template>
+        <template v-else>
+          <Field :label="t('inspector.sourceFilter')">
+            <Input
+              :model-value="node.sourceFilter ?? ''"
+              type="textarea"
+              placeholder="color=c=black:s=1280x720:d=5"
+              @update:model-value="(v: string) => store.updateNode(node!.id, { sourceFilter: v })"
+            />
+          </Field>
+          <Field :label="t('inspector.rawOutputs')">
+            <div class="pads">
+              <div v-for="(p, i) in node.sourceOutputs ?? []" :key="i" class="pads__row">
+                <Select
+                  :model-value="p"
+                  :options="portOptions"
+                  style="width: 110px"
+                  @update:model-value="
+                    (v: string) => {
+                      const arr = [...(node!.sourceOutputs ?? [])];
+                      arr[i] = v as PortType;
+                      store.updateNode(node!.id, { sourceOutputs: arr });
+                    }
+                  "
+                />
+                <Button
+                  size="tiny"
+                  variant="ghost"
+                  @click="
+                    store.updateNode(node!.id, {
+                      sourceOutputs: (node!.sourceOutputs ?? []).filter((_, j) => j !== i),
+                    })
+                  "
+                  >✕</Button
+                >
+              </div>
+              <div>
+                <Button
+                  size="tiny"
+                  dashed
+                  @click="
+                    store.updateNode(node!.id, {
+                      sourceOutputs: [...(node!.sourceOutputs ?? []), 'video'],
+                    })
+                  "
+                  >+</Button
+                >
+              </div>
             </div>
-            <div>
-              <Button
-                size="tiny"
-                dashed
-                @click="
-                  store.updateNode(node!.id, {
-                    sourceOutputs: [...(node!.sourceOutputs ?? []), 'video'],
-                  })
-                "
-                >+</Button
-              >
-            </div>
-          </div>
-        </Field>
+          </Field>
+        </template>
       </div>
 
       <!-- filter -->

@@ -23,9 +23,7 @@ const isGhost = computed(
 
 const hasError = computed(() => store.validation.errors.some((e) => e.nodeId === props.id));
 
-const kindLabel = computed(() =>
-  node.value.kind === "filter" ? (node.value.filterName ?? "filter") : node.value.kind,
-);
+const kindLabel = computed(() => node.value.filterName ?? node.value.kind);
 
 const portText = (type: string) => (type === "video" ? "v" : type === "audio" ? "a" : "av");
 </script>
@@ -48,7 +46,7 @@ const portText = (type: string) => (type === "video" ? "v" : type === "audio" ? 
         {{ node.rawFilter || "…" }}
       </template>
       <template v-else-if="node.kind === 'source'">
-        {{ node.sourceFilter || "…" }}
+        {{ node.filterName ?? (node.sourceFilter || "…") }}
       </template>
       <template v-else-if="node.kind === 'stage' || node.kind === 'output'">
         {{ node.filename || "…" }}

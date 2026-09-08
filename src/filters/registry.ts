@@ -1,18 +1,13 @@
-import type { FilterSpec, LocalText } from "../types/filter";
+import type { FilterSpec, LocalText, ParamSpec, PortType } from "../types/filter";
 
 /** Non-filter node kinds, defined alongside filters so the palette renders one uniform list. */
 export interface SpecialNodeSpec {
-  kind: "stage" | "output" | "raw" | "source";
+  kind: "stage" | "output" | "raw";
   name: string;
   desc?: LocalText;
 }
 
 export const SPECIAL_NODES: SpecialNodeSpec[] = [
-  {
-    kind: "source",
-    name: "source",
-    desc: { zh: "lavfi 虚拟源", en: "lavfi source" },
-  },
   {
     kind: "stage",
     name: "stage",
@@ -29,6 +24,137 @@ export const SPECIAL_NODES: SpecialNodeSpec[] = [
     desc: { zh: "任意 filter 表达式", en: "Custom filter expr" },
   },
 ];
+
+/**
+ * Declarative lavfi source registry, same spec-driven shape as filters:
+ * the inspector renders a param form, the compiler serializes name=key:value.
+ * The palette also offers a generic "source" node (raw lavfi expression) beside these.
+ */
+export interface SourceSpec {
+  name: string;
+  desc?: LocalText;
+  outputs: PortType[];
+  params: ParamSpec[];
+}
+
+export const SOURCE_PRESETS: SourceSpec[] = [
+  {
+    name: "color",
+    desc: { zh: "纯色画面", en: "Solid color" },
+    outputs: ["video"],
+    params: [
+      { key: "c", type: "color", default: "black", desc: { zh: "颜色", en: "color" } },
+      {
+        key: "s",
+        type: "string",
+        default: "1280x720",
+        desc: { zh: "尺寸", en: "size" },
+      },
+      {
+        key: "d",
+        type: "number",
+        default: 5,
+        min: 0,
+        step: 0.1,
+        desc: { zh: "时长（秒）", en: "duration (s)" },
+      },
+      {
+        key: "r",
+        type: "number",
+        default: 30,
+        min: 1,
+        max: 240,
+        desc: { zh: "帧率", en: "frame rate" },
+      },
+    ],
+  },
+  {
+    name: "sine",
+    desc: { zh: "正弦波", en: "Sine wave" },
+    outputs: ["audio"],
+    params: [
+      {
+        key: "frequency",
+        type: "number",
+        default: 440,
+        min: 1,
+        desc: { zh: "频率（Hz）", en: "frequency (Hz)" },
+      },
+      {
+        key: "duration",
+        type: "number",
+        default: 5,
+        min: 0,
+        step: 0.1,
+        desc: { zh: "时长（秒）", en: "duration (s)" },
+      },
+      {
+        key: "sample_rate",
+        type: "number",
+        default: 44100,
+        min: 8000,
+        desc: { zh: "采样率", en: "sample rate" },
+      },
+    ],
+  },
+  {
+    name: "testsrc",
+    desc: { zh: "测试图", en: "Test pattern" },
+    outputs: ["video"],
+    params: [
+      { key: "size", type: "string", default: "1280x720", desc: { zh: "尺寸", en: "size" } },
+      {
+        key: "rate",
+        type: "number",
+        default: 30,
+        min: 1,
+        max: 240,
+        desc: { zh: "帧率", en: "frame rate" },
+      },
+      {
+        key: "duration",
+        type: "number",
+        default: 5,
+        min: 0,
+        step: 0.1,
+        desc: { zh: "时长（秒）", en: "duration (s)" },
+      },
+    ],
+  },
+  {
+    name: "anoisesrc",
+    desc: { zh: "噪声", en: "Noise" },
+    outputs: ["audio"],
+    params: [
+      {
+        key: "color",
+        type: "select",
+        default: "white",
+        options: [{ value: "white" }, { value: "pink" }, { value: "brown" }],
+        desc: { zh: "噪声颜色", en: "noise color" },
+      },
+      {
+        key: "amplitude",
+        type: "number",
+        default: 1,
+        min: 0,
+        max: 1,
+        step: 0.05,
+        desc: { zh: "振幅", en: "amplitude" },
+      },
+      {
+        key: "duration",
+        type: "number",
+        default: 5,
+        min: 0,
+        step: 0.1,
+        desc: { zh: "时长（秒）", en: "duration (s)" },
+      },
+    ],
+  },
+];
+
+export const sourceByName = new Map(SOURCE_PRESETS.map((s) => [s.name, s]));
 
 const v = { type: "video" } as const;
 const a = { type: "audio" } as const;

@@ -102,7 +102,8 @@ function onDrop(event: DragEvent) {
         mime: string;
       }
     | { type: "filter"; name: string }
-    | { type: "special"; kind: "stage" | "output" | "raw" | "source" };
+    | { type: "source"; name?: string }
+    | { type: "special"; kind: "stage" | "output" | "raw" };
   const position = screenToFlowCoordinate({
     x: event.clientX,
     y: event.clientY,
@@ -124,19 +125,23 @@ function onDrop(event: DragEvent) {
       params: {},
       position,
     });
+  } else if (parsed.type === "source") {
+    store.addNode({
+      kind: "source",
+      position,
+      ...(parsed.name
+        ? { filterName: parsed.name, params: {} }
+        : { sourceFilter: "", sourceOutputs: ["video" as const] }),
+    });
   } else if (parsed.kind === "stage" || parsed.kind === "output") {
     store.addSinkNode(parsed.kind, "mp4", position);
   } else {
     store.addNode({
       kind: parsed.kind,
       position,
-      ...(parsed.kind === "raw"
-        ? {
-            rawFilter: "",
-            rawInputs: ["video" as const],
-            rawOutputs: ["video" as const],
-          }
-        : { sourceFilter: "", sourceOutputs: ["video" as const] }),
+      rawFilter: "",
+      rawInputs: ["video" as const],
+      rawOutputs: ["video" as const],
     });
   }
 }

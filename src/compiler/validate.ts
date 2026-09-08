@@ -1,6 +1,6 @@
 import type { WorkflowGraph, WorkflowNode, WorkflowEdge } from "../types/graph";
 import type { PortSpec, PortType } from "../types/filter";
-import { filterByName } from "../filters/registry";
+import { filterByName, sourceByName } from "../filters/registry";
 import { FORMATS, formatOf, formatKind } from "./formats";
 
 /** Input pads of a node, in handle order (handle id = `in-{index}`). */
@@ -41,8 +41,11 @@ export function outputPads(node: WorkflowNode): PortSpec[] {
       return [{ type: "av" }];
     case "output":
       return [];
-    case "source":
+    case "source": {
+      const spec = node.filterName ? sourceByName.get(node.filterName) : undefined;
+      if (spec) return spec.outputs.map((type) => ({ type }));
       return (node.sourceOutputs ?? ["video"]).map((type) => ({ type }));
+    }
     case "stage":
       return [{ type: "av" }];
     case "filter": {
@@ -98,7 +101,7 @@ export function nodeDisplayName(node: WorkflowNode): string {
     case "asset":
       return node.assetRef?.filename ?? "asset";
     case "source":
-      return node.sourceFilter?.split("=")[0] || "source";
+      return node.filterName ?? (node.sourceFilter?.split("=")[0] || "source");
     case "filter":
       return node.filterName ?? "filter";
     case "raw":
@@ -236,7 +239,8 @@ export function validateGraph(
         break;
       }
       case "source": {
-        if (!node.sourceFilter?.trim()) {
+        // spec-driven presets always serialize to a non-empty expression
+        if (!node.filterName && !node.sourceFilter?.trim()) {
           errors.push({ code: "sourceEmpty", nodeId: node.id, nodeName: name });
         }
         if (outputPads(node).length === 0) {
