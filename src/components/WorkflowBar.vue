@@ -107,7 +107,10 @@ const fmtTime = (ts: number) => new Date(ts).toLocaleString();
     </Modal>
 
     <Modal v-model:show="showManager" :title="t('workflow.manage')" style="max-width: 560px">
-      <div class="divide-line-soft border-line divide-y rounded-md border">
+      <div
+        v-if="store.saved.length"
+        class="divide-line-soft border-line divide-y rounded-md border"
+      >
         <div v-for="w in store.saved" :key="w.id" class="px-3 py-2">
           <div class="wfrow">
             <div>
@@ -135,6 +138,7 @@ const fmtTime = (ts: number) => new Date(ts).toLocaleString();
           </div>
         </div>
       </div>
+      <div v-else class="wfempty">{{ t("workflow.empty") }}</div>
     </Modal>
   </div>
 </template>
@@ -158,5 +162,9 @@ const fmtTime = (ts: number) => new Date(ts).toLocaleString();
 .wfrow__actions {
   display: flex;
   gap: 6px;
+}
+.wfempty {
+  color: #6b7280;
+  font-size: 12px;
 }
 </style>

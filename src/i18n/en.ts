@@ -20,6 +20,7 @@ export default {
     save: "Save",
     saveAs: "Save as",
     manage: "Manage workflows",
+    empty: "No saved workflows yet",
     export: "Export JSON",
     import: "Import JSON",
     delete: "Delete",

@@ -20,6 +20,7 @@ export default {
     save: "保存",
     saveAs: "另存为",
     manage: "管理工作流",
+    empty: "暂无已保存的工作流",
     export: "导出 JSON",
     import: "导入 JSON",
     delete: "删除",
