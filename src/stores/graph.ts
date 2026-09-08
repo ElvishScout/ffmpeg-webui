@@ -77,6 +77,7 @@ export const useGraphStore = defineStore("graph", () => {
       },
     };
     nodes.value.push(n);
+    selectedId.value = n.id;
     revision.value++;
     return n;
   }

@@ -34,6 +34,7 @@ watch(
         type: "wf",
         position: n.position,
         data: {},
+        selected: n.id === store.selectedId,
       })),
     );
     setEdges(
