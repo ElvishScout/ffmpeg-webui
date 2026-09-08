@@ -11,6 +11,7 @@ import WorkflowBar from "./components/WorkflowBar.vue";
 import AssetPanel from "./components/AssetPanel.vue";
 import RunPanel from "./components/RunPanel.vue";
 import CommandPreview from "./components/CommandPreview.vue";
+import UploadModal from "./components/UploadModal.vue";
 import EditorCanvas from "./components/editor/EditorCanvas.vue";
 import NodePalette from "./components/editor/NodePalette.vue";
 import InspectorPanel from "./components/editor/InspectorPanel.vue";
@@ -51,13 +52,21 @@ const validationMessages = computed(() =>
   ),
 );
 
-async function onRun() {
+const showUpload = ref(false);
+
+async function doRun(files?: Record<string, File[]>) {
   try {
-    await runStore.run();
+    await runStore.run(files);
     rightTab.value = "outputs";
   } catch (e) {
     toast.error(e instanceof Error ? e.message : String(e));
   }
+}
+
+function onRun() {
+  // graphs with upload nodes collect files per run first
+  if (graphStore.hasUploads) showUpload.value = true;
+  else void doRun();
 }
 </script>
 
@@ -135,6 +144,7 @@ async function onRun() {
     </main>
 
     <CommandPreview v-model:show="showCommand" />
+    <UploadModal v-model:show="showUpload" @confirm="doRun" />
   </div>
 </template>
 

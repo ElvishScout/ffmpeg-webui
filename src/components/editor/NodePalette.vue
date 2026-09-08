@@ -10,13 +10,13 @@ import {
   SOURCE_PRESETS,
   defaultParams,
   type SourceSpec,
-} from "../../filters/registry";
+} from "../../specs/registry";
 import { useGraphStore } from "../../stores/graph";
 
 const { t, locale } = useI18n();
 const store = useGraphStore();
 const search = ref("");
-const collapsed = ref<Set<string>>(new Set(FILTER_CATEGORIES));
+const collapsed = ref<Set<string>>(new Set([...FILTER_CATEGORIES, "special", "source"]));
 
 function toggle(cat: string) {
   if (collapsed.value.has(cat)) collapsed.value.delete(cat);
@@ -47,11 +47,14 @@ const filtered = computed<{ cat: string; items: PaletteItem[] }[]>(() => {
     cat,
     items: FILTER_REGISTRY.filter((f) => f.category === cat && match(f.name, f.desc)),
   })).filter((g) => g.items.length > 0);
-  const specialItems = SPECIAL_NODES.filter((s) => match(s.name, s.desc)).map((s) => ({
-    name: s.name,
-    desc: s.desc,
-    special: s.kind,
-  }));
+  // asset nodes are created from the asset panel / file drop, never from the palette
+  const specialItems = SPECIAL_NODES.filter((s) => s.kind !== "asset" && match(s.name, s.desc)).map(
+    (s) => ({
+      name: s.name,
+      desc: s.desc,
+      special: s.kind,
+    }),
+  );
   const sourceItems: PaletteItem[] = [
     ...(match(GENERIC_SOURCE.name, GENERIC_SOURCE.desc)
       ? [{ ...GENERIC_SOURCE, customSource: true }]
@@ -91,7 +94,9 @@ function add(item: PaletteItem) {
       rawInputs: ["video"],
       rawOutputs: ["video"],
     });
-  } else {
+  } else if (item.special === "upload" || item.special === "glob") {
+    store.addNode({ kind: item.special, params: {} });
+  } else if (item.special === "stage" || item.special === "output") {
     store.addSinkNode(item.special);
   }
 }

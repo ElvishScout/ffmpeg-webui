@@ -23,10 +23,13 @@ export interface ParamSpec {
   desc?: LocalText;
 }
 
-export interface FilterSpec {
-  /** ffmpeg filter name, e.g. "scale" */
+/**
+ * Common base for every node specification: identity + ports + params.
+ * Filters, lavfi sources and special nodes (asset/stage/output/raw/…) all
+ * share this shape; role-specific specs extend it below.
+ */
+export interface NodeSpec {
   name: string;
-  category: "transform" | "color" | "overlay" | "audio" | "text" | "io" | "misc";
   desc?: LocalText;
   inputs: PortSpec[];
   outputs: PortSpec[];
@@ -38,6 +41,12 @@ export interface FilterSpec {
   inputsFrom?: string;
   /** Same for output pads (split/asplit). Node data carries `outputCount`. */
   outputsFrom?: string;
+}
+
+export interface FilterSpec extends NodeSpec {
+  /** ffmpeg filter name, e.g. "scale" */
+  name: string;
+  category: "transform" | "color" | "overlay" | "audio" | "text" | "io" | "misc";
   /** Serialize the pad-count param positionally (split=2), not as key=value. */
   positionalCount?: boolean;
 }

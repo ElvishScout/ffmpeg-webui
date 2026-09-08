@@ -1,6 +1,13 @@
-import type { WorkflowGraph, WorkflowNode, WorkflowEdge, AssetRef } from "../types/graph";
+import type {
+  WorkflowGraph,
+  WorkflowNode,
+  WorkflowEdge,
+  AssetRef,
+  StageNode,
+  OutputNode,
+} from "../types/graph";
 import type { Job, JobSegment, JobInput, JobOutput } from "../types/job";
-import { filterByName, sourceByName } from "../filters/registry";
+import { filterByName, sourceByName } from "../specs/registry";
 import type { ParamSpec } from "../types/filter";
 import { FORMATS, formatOf, codecArgs } from "./formats";
 import {
@@ -44,7 +51,8 @@ export function serializeFilter(node: WorkflowNode): string {
     if (!spec) return node.sourceFilter?.trim() ?? "";
     return serializeParams(spec.name, spec.params, node.params ?? {});
   }
-  const spec = node.filterName ? filterByName.get(node.filterName) : undefined;
+  if (node.kind !== "filter") return "";
+  const spec = filterByName.get(node.filterName);
   if (!spec) return "";
   const params = node.params ?? {};
   if (spec.positionalCount) {
@@ -147,7 +155,8 @@ export function compileGraph(graph: WorkflowGraph, opts: CompileOptions = {}): C
         outSeg.get(n.id) === seg,
     );
     const sinks = order.filter(
-      (n) => (n.kind === "output" || n.kind === "stage") && sinkSeg.get(n.id) === seg,
+      (n): n is StageNode | OutputNode =>
+        (n.kind === "output" || n.kind === "stage") && sinkSeg.get(n.id) === seg,
     );
     if (sinks.length === 0) continue;
 
@@ -168,7 +177,7 @@ export function compileGraph(graph: WorkflowGraph, opts: CompileOptions = {}): C
       if (existing !== undefined) return existing;
       const src = byId.get(srcId)!;
       const idx = inputs.length;
-      if (src.kind === "asset" && src.assetRef) {
+      if (src.kind === "asset") {
         const ext = src.assetRef.filename.match(/\.[a-z0-9]{2,5}$/i)?.[0] ?? "";
         inputs.push({
           file: `in${idx}${ext}`,
@@ -177,15 +186,16 @@ export function compileGraph(graph: WorkflowGraph, opts: CompileOptions = {}): C
           inputT: src.inputT?.trim() || undefined,
           streamLoop: src.streamLoop,
         });
-      } else {
-        const node = src; // stage
+      } else if (src.kind === "stage") {
         inputs.push({
           file: ensureExt(
-            sanitizeFilename(node.filename ?? `mid_${node.id}`),
-            FORMATS[formatOf(node)].ext,
+            sanitizeFilename(src.filename ?? `mid_${src.id}`),
+            FORMATS[formatOf(src)].ext,
           ),
-          source: { kind: "stage", nodeId: node.id },
+          source: { kind: "stage", nodeId: src.id },
         });
+      } else {
+        return null; // key came from inputKeyForEdgeSource: unreachable
       }
       inputIndex.set(key, idx);
       return idx;

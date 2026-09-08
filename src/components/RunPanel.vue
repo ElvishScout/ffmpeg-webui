@@ -19,11 +19,15 @@ const statusLabel = computed(() => {
   switch (store.status) {
     case "loading":
       return t("run.loadingCore");
-    case "running":
-      return t("run.segment", {
+    case "running": {
+      const seg = t("run.segment", {
         current: store.segmentIndex + 1,
         total: store.segmentTotal,
       });
+      return store.iterationTotal > 0
+        ? `${t("run.iteration", { current: store.iterationIndex + 1, total: store.iterationTotal })} · ${seg}`
+        : seg;
+    }
     case "done":
       return t("run.done");
     case "failed":
@@ -33,6 +37,16 @@ const statusLabel = computed(() => {
     default:
       return "";
   }
+});
+
+/** batch mode counts iterations × per-iteration segment progress; single run = segments only */
+const progressPct = computed(() => {
+  const segTotal = store.segmentTotal || 1;
+  const segPart = (store.segmentIndex + store.segmentRatio) / segTotal;
+  if (store.iterationTotal > 0) {
+    return Math.round(((store.iterationIndex + segPart) / store.iterationTotal) * 100);
+  }
+  return Math.round(segPart * 100);
 });
 
 const statusType = computed(() => {
@@ -106,9 +120,7 @@ function guessMime(ext: string): string {
       <Tag :type="statusType" size="small">{{ statusLabel }}</Tag>
       <Progress
         v-if="store.running && store.segmentTotal > 0"
-        :percentage="
-          Math.round(((store.segmentIndex + store.segmentRatio) / store.segmentTotal) * 100)
-        "
+        :percentage="progressPct"
         processing
       />
       <div v-if="store.error" class="run__error">{{ store.error }}</div>
@@ -117,31 +129,43 @@ function guessMime(ext: string): string {
     <template v-if="view === 'outputs'">
       <template v-if="store.outputs.length">
         <div v-for="f in store.outputs" :key="f.nodeId + f.filename" class="run__output">
-        <div class="run__output-head">
-          <Tag size="tiny" :type="f.kind === 'output' ? 'success' : 'info'">
-            {{ f.kind === "output" ? t("run.outputFile") : t("run.stageFile") }}
-          </Tag>
-          <span class="run__output-name">{{ f.filename }}</span>
-        </div>
-        <div class="run__output-actions">
-          <Button
-            v-if="isPlayable(f)"
-            size="tiny"
-            @click="previewing = previewing === f.filename ? null : f.filename"
-          >
-            {{ t("run.preview") }}
-          </Button>
-          <Button size="tiny" @click="download(f)">{{ t("run.download") }}</Button>
-          <Button size="tiny" @click="saveToAssets(f)">{{ t("run.saveToAssets") }}</Button>
-        </div>
-        <div v-if="previewing === f.filename" class="run__preview">
-          <img v-if="isImage(f)" :src="previewUrl(f)" alt="" />
-          <audio v-else-if="isAudio(f)" :src="previewUrl(f)" controls />
-          <video v-else :src="previewUrl(f)" controls />
-        </div>
+          <div class="run__output-head">
+            <Tag size="tiny" :type="f.kind === 'output' ? 'success' : 'info'">
+              {{ f.kind === "output" ? t("run.outputFile") : t("run.stageFile") }}
+            </Tag>
+            <span class="run__output-name">{{ f.filename }}</span>
+          </div>
+          <div class="run__output-actions">
+            <Button
+              v-if="isPlayable(f)"
+              size="tiny"
+              @click="previewing = previewing === f.filename ? null : f.filename"
+            >
+              {{ t("run.preview") }}
+            </Button>
+            <Button size="tiny" @click="download(f)">{{ t("run.download") }}</Button>
+            <Button size="tiny" @click="saveToAssets(f)">{{ t("run.saveToAssets") }}</Button>
+          </div>
+          <div v-if="previewing === f.filename" class="run__preview">
+            <img v-if="isImage(f)" :src="previewUrl(f)" alt="" />
+            <audio v-else-if="isAudio(f)" :src="previewUrl(f)" controls />
+            <video v-else :src="previewUrl(f)" controls />
+          </div>
         </div>
       </template>
-      <div v-else class="run__empty">{{ t("run.outputsEmpty") }}</div>
+      <div v-for="f in store.failures" :key="f.iteration" class="run__output">
+        <div class="run__output-head">
+          <Tag size="tiny" type="error">{{ t("run.failedTag") }}</Tag>
+          <span class="run__output-name">
+            {{ t("run.iteration", { current: f.iteration, total: store.iterationTotal }) }}:
+            {{ f.files.join(" + ") }}
+          </span>
+        </div>
+        <div class="run__error">{{ f.message }}</div>
+      </div>
+      <div v-if="!store.outputs.length && !store.failures.length" class="run__empty">
+        {{ t("run.outputsEmpty") }}
+      </div>
     </template>
 
     <template v-else>

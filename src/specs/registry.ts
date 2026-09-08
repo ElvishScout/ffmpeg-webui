@@ -1,47 +1,98 @@
-import type { FilterSpec, LocalText, ParamSpec, PortType } from "../types/filter";
+import type { FilterSpec, NodeSpec, ParamSpec } from "../types/filter";
 
-/** Non-filter node kinds, defined alongside filters so the palette renders one uniform list. */
-export interface SpecialNodeSpec {
-  kind: "stage" | "output" | "raw";
-  name: string;
-  desc?: LocalText;
+/**
+ * Non-filter node kinds, defined alongside filters so the palette renders one
+ * uniform list. Ports declared here are the default shape: stage/output input
+ * pads grow with `audioPads`, raw pads are user-defined — both are derived in
+ * validate.ts, which consults these specs first.
+ */
+export interface SpecialNodeSpec extends NodeSpec {
+  kind: "asset" | "stage" | "output" | "raw" | "upload" | "glob";
 }
 
 export const SPECIAL_NODES: SpecialNodeSpec[] = [
   {
+    kind: "asset",
+    name: "asset",
+    desc: { zh: "素材库文件输入", en: "Asset library input" },
+    inputs: [],
+    outputs: [{ type: "av" }],
+    params: [],
+  },
+  {
     kind: "stage",
     name: "stage",
     desc: { zh: "切段，暂存到文件", en: "Split & cache to file" },
+    inputs: [{ type: "video" }, { type: "audio" }],
+    outputs: [{ type: "av" }],
+    params: [],
   },
   {
     kind: "output",
     name: "output",
     desc: { zh: "产出最终文件", en: "Final file" },
+    inputs: [{ type: "video" }, { type: "audio" }],
+    outputs: [],
+    params: [],
   },
   {
     kind: "raw",
     name: "raw",
     desc: { zh: "任意 filter 表达式", en: "Custom filter expr" },
+    inputs: [{ type: "video" }],
+    outputs: [{ type: "video" }],
+    params: [],
+  },
+  {
+    kind: "upload",
+    name: "upload",
+    desc: { zh: "运行时上传多个文件，逐个通过工作流", en: "Upload files at run time, one per run" },
+    inputs: [],
+    outputs: [{ type: "av" }],
+    params: [
+      {
+        key: "accept",
+        type: "string",
+        placeholder: ".mp3,.wav",
+        desc: { zh: "文件选择框类型提示", en: "file picker accept hint" },
+      },
+    ],
+  },
+  {
+    kind: "glob",
+    name: "glob",
+    desc: { zh: "按文件名模式过滤文件流", en: "Filter a file stream by filename pattern" },
+    inputs: [{ type: "av" }],
+    outputs: [{ type: "av" }],
+    params: [
+      {
+        key: "patterns",
+        type: "string",
+        placeholder: "*.mp3, *.wav",
+        desc: { zh: "逗号分隔，仅 * 和 ?,大小写不敏感", en: "comma-separated, * and ? only" },
+      },
+    ],
   },
 ];
+
+export const specialByKind = new Map(SPECIAL_NODES.map((s) => [s.kind, s]));
 
 /**
  * Declarative lavfi source registry, same spec-driven shape as filters:
  * the inspector renders a param form, the compiler serializes name=key:value.
  * The palette also offers a generic "source" node (raw lavfi expression) beside these.
  */
-export interface SourceSpec {
-  name: string;
-  desc?: LocalText;
-  outputs: PortType[];
-  params: ParamSpec[];
+export interface SourceSpec extends NodeSpec {
+  /** lavfi sources never take inputs. */
+  inputs: [];
 }
 
 export const SOURCE_PRESETS: SourceSpec[] = [
   {
     name: "color",
     desc: { zh: "纯色画面", en: "Solid color" },
-    outputs: ["video"],
+    inputs: [],
+    outputs: [{ type: "video" }],
     params: [
       { key: "c", type: "color", default: "black", desc: { zh: "颜色", en: "color" } },
       {
@@ -71,7 +122,8 @@ export const SOURCE_PRESETS: SourceSpec[] = [
   {
     name: "sine",
     desc: { zh: "正弦波", en: "Sine wave" },
-    outputs: ["audio"],
+    inputs: [],
+    outputs: [{ type: "audio" }],
     params: [
       {
         key: "frequency",
@@ -100,7 +152,8 @@ export const SOURCE_PRESETS: SourceSpec[] = [
   {
     name: "testsrc",
     desc: { zh: "测试图", en: "Test pattern" },
-    outputs: ["video"],
+    inputs: [],
+    outputs: [{ type: "video" }],
     params: [
       { key: "size", type: "string", default: "1280x720", desc: { zh: "尺寸", en: "size" } },
       {
@@ -124,7 +177,8 @@ export const SOURCE_PRESETS: SourceSpec[] = [
   {
     name: "anoisesrc",
     desc: { zh: "噪声", en: "Noise" },
-    outputs: ["audio"],
+    inputs: [],
+    outputs: [{ type: "audio" }],
     params: [
       {
         key: "color",

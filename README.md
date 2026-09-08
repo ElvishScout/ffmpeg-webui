@@ -38,8 +38,9 @@ Cross-Origin-Embedder-Policy: require-corp
 ```
 src/
   types/         # 图模型、Job、Executor 接口、filter schema
-  filters/       # 声明式 filter 注册表（~40 个，纯数据）
+  specs/         # 声明式节点注册表（filters + lavfi 源 + 特殊节点，纯数据）
   compiler/      # 校验（类型/环/连通性） + 图 → filter_complex 编译（纯函数，单测覆盖）
+  runner/        # 批量执行：upload/glob 流分析、glob 匹配、逐迭代图绑定（纯函数）
   data/          # OPFS 素材存储、IndexedDB、浏览器原生元数据探测、缺失素材匹配
   workflow/      # 存档、schemaVersion 迁移、导入导出
   executor/      # Executor 接口的 wasm 实现（core-mt 惰性加载，terminate 取消）

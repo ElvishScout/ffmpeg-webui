@@ -119,6 +119,8 @@ export default {
   },
   run: {
     segment: "Segment {current}/{total}",
+    iteration: "Iteration {current}/{total}",
+    failedTag: "Failed",
     loadingCore: "Loading ffmpeg core (slow on first run)…",
     done: "Done",
     failed: "Failed",
@@ -158,6 +160,15 @@ export default {
     copied: "Copied",
     segmentLabel: "Segment {n}",
     invalid: "Graph failed validation; cannot generate command",
+    batchNote:
+      "This graph has upload nodes: commands are generated per iteration with the current files and cannot be previewed here",
+  },
+  upload: {
+    title: "Upload files",
+    hint: "Pick files for each upload node (at least 1). Streams pair up in filename order; the batch ends when any stream runs out.",
+    pick: "Choose files",
+    count: "{n} file(s) picked",
+    start: "Start",
   },
   errors: {
     opfsUnsupported: "OPFS is not supported in this browser; asset library unavailable",

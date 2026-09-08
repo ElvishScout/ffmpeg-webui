@@ -14,7 +14,9 @@ const emit = defineEmits<{ (e: "update:show", v: boolean): void }>();
 const { t } = useI18n();
 const store = useGraphStore();
 
-const result = computed(() => (props.show ? store.compile() : null));
+// batch graphs have no static command: args are generated per iteration
+const isBatch = computed(() => store.hasUploads);
+const result = computed(() => (props.show && !isBatch.value ? store.compile() : null));
 const commands = computed(() => (result.value?.job ? jobToCommands(result.value.job) : []));
 
 async function copyAll() {
@@ -30,14 +32,17 @@ async function copyAll() {
     style="max-width: 760px"
     @update:show="(v: boolean) => emit('update:show', v)"
   >
-    <Alert v-if="!commands.length" type="warning">{{ t("command.invalid") }}</Alert>
-    <div v-for="(cmd, i) in commands" :key="i" class="cmd">
-      <div class="cmd__label">
-        {{ t("command.segmentLabel", { n: i + 1 }) }}
+    <Alert v-if="isBatch" type="info">{{ t("command.batchNote") }}</Alert>
+    <Alert v-else-if="!commands.length" type="warning">{{ t("command.invalid") }}</Alert>
+    <template v-else>
+      <div v-for="(cmd, i) in commands" :key="i" class="cmd">
+        <div class="cmd__label">
+          {{ t("command.segmentLabel", { n: i + 1 }) }}
+        </div>
+        <pre class="cmd__text">{{ cmd }}</pre>
       </div>
-      <pre class="cmd__text">{{ cmd }}</pre>
-    </div>
-    <template v-if="commands.length" #footer>
+    </template>
+    <template v-if="!isBatch && commands.length" #footer>
       <Button size="small" @click="copyAll">{{ t("command.copy") }}</Button>
     </template>
   </Modal>

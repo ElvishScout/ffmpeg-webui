@@ -1,6 +1,12 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import type { WorkflowGraph, WorkflowNode, WorkflowEdge, AssetRef } from "../types/graph";
+import type {
+  WorkflowGraph,
+  WorkflowNode,
+  WorkflowEdge,
+  AssetRef,
+  NodeDraft,
+} from "../types/graph";
 import type { PortType } from "../types/filter";
 import { SCHEMA_VERSION } from "../types/graph";
 import { validateGraph, inputPads, outputPads, portsCompatible } from "../compiler/validate";
@@ -23,11 +29,12 @@ export const useGraphStore = defineStore("graph", () => {
   const assetsStore = useAssetsStore();
 
   const missingAssetIds = computed<Set<string>>(() => {
-    const refs = nodes.value
-      .filter((n) => n.kind === "asset" && n.assetRef)
-      .map((n) => n.assetRef!);
+    const refs = nodes.value.flatMap((n) => (n.kind === "asset" ? [n.assetRef] : []));
     return missingRefs(refs, assetsStore.assets);
   });
+
+  /** graphs with upload nodes run in batch mode: files are collected per run */
+  const hasUploads = computed(() => nodes.value.some((n) => n.kind === "upload"));
 
   const graph = computed<WorkflowGraph>(() => ({
     schemaVersion: SCHEMA_VERSION,
@@ -63,19 +70,15 @@ export const useGraphStore = defineStore("graph", () => {
     revision.value++;
   }
 
-  function addNode(
-    partial: Omit<WorkflowNode, "id" | "position"> & {
-      position?: { x: number; y: number };
-    },
-  ): WorkflowNode {
-    const n: WorkflowNode = {
-      ...partial,
+  function addNode(draft: NodeDraft & { position?: { x: number; y: number } }): WorkflowNode {
+    const n = {
+      ...draft,
       id: `n${Date.now().toString(36)}_${nodeSeq++}`,
-      position: partial.position ?? {
+      position: draft.position ?? {
         x: 100 + Math.random() * 200,
         y: 100 + Math.random() * 200,
       },
-    };
+    } as WorkflowNode;
     nodes.value.push(n);
     selectedId.value = n.id;
     revision.value++;
@@ -90,9 +93,9 @@ export const useGraphStore = defineStore("graph", () => {
     const base = kind === "stage" ? "mid" : "output";
     const ext = FORMATS[format].ext;
     const taken = new Set(
-      nodes.value
-        .filter((n) => (n.kind === "stage" || n.kind === "output") && n.filename)
-        .map((n) => n.filename!),
+      nodes.value.flatMap((n) =>
+        (n.kind === "stage" || n.kind === "output") && n.filename ? [n.filename] : [],
+      ),
     );
     let name = `${base}.${ext}`;
     for (let i = 2; taken.has(name); i++) name = `${base}_${i}.${ext}`;
@@ -117,13 +120,18 @@ export const useGraphStore = defineStore("graph", () => {
   }
 
   function updateNode(id: string, patch: Partial<WorkflowNode>) {
-    const idx = nodes.value.findIndex((n) => n.id === id);
-    if (idx >= 0) nodes.value[idx] = { ...nodes.value[idx], ...patch };
+    const n = nodes.value.find((x) => x.id === id);
+    if (n) Object.assign(n, patch);
   }
 
   function updateParam(id: string, key: string, value: unknown) {
     const n = nodes.value.find((x) => x.id === id);
-    if (n) n.params = { ...(n.params ?? {}), [key]: value };
+    if (
+      n &&
+      (n.kind === "filter" || n.kind === "source" || n.kind === "upload" || n.kind === "glob")
+    ) {
+      n.params = { ...(n.params ?? {}), [key]: value };
+    }
   }
 
   function removeNode(id: string) {
@@ -204,6 +212,7 @@ export const useGraphStore = defineStore("graph", () => {
     graph,
     validation,
     missingAssetIds,
+    hasUploads,
     compile,
     load,
     clear,

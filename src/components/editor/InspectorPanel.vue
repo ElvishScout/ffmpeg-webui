@@ -10,13 +10,14 @@ import Tag from "../ui/Tag.vue";
 import Alert from "../ui/Alert.vue";
 import { useGraphStore } from "../../stores/graph";
 import { useAssetsStore } from "../../stores/assets";
-import { filterByName, sourceByName } from "../../filters/registry";
+import { filterByName, sourceByName, specialByKind } from "../../specs/registry";
 import { nodeDisplayName } from "../../compiler/validate";
 import { FORMATS, formatOf } from "../../compiler/formats";
 import { matchCandidates } from "../../data/match";
 import ParamField from "./ParamField.vue";
+import InputOptionsFields from "./InputOptionsFields.vue";
 import type { PortType } from "../../types/filter";
-import type { OutputFormat, WorkflowNode } from "../../types/graph";
+import type { EncodePreset, OutputFormat } from "../../types/graph";
 
 const { t, locale } = useI18n();
 const store = useGraphStore();
@@ -33,9 +34,19 @@ const sourceSpec = computed(() =>
     ? sourceByName.get(node.value.filterName)
     : undefined,
 );
+const specialSpec = computed(() =>
+  node.value?.kind === "upload" || node.value?.kind === "glob"
+    ? specialByKind.get(node.value.kind)
+    : undefined,
+);
 
 // --- stage / output: format × strategy (orthogonal) ---
-const sinkFormat = computed<OutputFormat>(() => (node.value ? formatOf(node.value) : "mp4"));
+const sinkNode = computed(() =>
+  node.value && (node.value.kind === "stage" || node.value.kind === "output") ? node.value : null,
+);
+const sinkFormat = computed<OutputFormat>(() =>
+  sinkNode.value ? formatOf(sinkNode.value) : "mp4",
+);
 
 const formatOptions = computed(() => {
   const group = (labelKey: string, formats: OutputFormat[]) => ({
@@ -63,21 +74,24 @@ const presetOptions = computed(() => {
 });
 
 function setFormat(v: OutputFormat) {
-  if (!node.value) return;
-  const patch: Partial<WorkflowNode> = { format: v };
+  const sink = sinkNode.value;
+  if (!sink) return;
+  const patch: { format: OutputFormat; preset?: EncodePreset; filename?: string } = {
+    format: v,
+  };
   // reset a strategy the new format doesn't support (e.g. lossless on webm)
-  if (node.value.preset && !FORMATS[v].presets.includes(node.value.preset)) {
+  if (sink.preset && !FORMATS[v].presets.includes(sink.preset)) {
     patch.preset = undefined;
   }
   // follow the format's default extension unless the user picked a custom one
-  const fn = node.value.filename ?? "";
+  const fn = sink.filename ?? "";
   const oldExt = FORMATS[sinkFormat.value].ext;
   const newExt = FORMATS[v].ext;
   const m = fn.match(/^(.*)\.([a-z0-9]{2,5})$/i);
   if (m && m[2].toLowerCase() === oldExt && oldExt !== newExt) {
     patch.filename = `${m[1]}.${newExt}`;
   }
-  store.updateNode(node.value.id, patch);
+  store.updateNode(sink.id, patch);
 }
 
 function setParam(key: string, value: unknown) {
@@ -98,7 +112,47 @@ const portOptions = computed(() => [
   { value: "audio", label: t("inspector.rawPortAudio") },
 ]);
 function setRawPads(which: "rawInputs" | "rawOutputs", pads: PortType[]) {
-  if (node.value) store.updateNode(node.value.id, { [which]: pads });
+  if (!node.value) return;
+  store.updateNode(
+    node.value.id,
+    which === "rawInputs" ? { rawInputs: pads } : { rawOutputs: pads },
+  );
+}
+function updateRawPad(which: "rawInputs" | "rawOutputs", i: number, v: PortType) {
+  if (node.value?.kind !== "raw") return;
+  const arr = [...(node.value[which] ?? [])];
+  arr[i] = v;
+  setRawPads(which, arr);
+}
+function removeRawPad(which: "rawInputs" | "rawOutputs", i: number) {
+  if (node.value?.kind !== "raw") return;
+  setRawPads(
+    which,
+    (node.value[which] ?? []).filter((_, j) => j !== i),
+  );
+}
+function addRawPad(which: "rawInputs" | "rawOutputs") {
+  if (node.value?.kind !== "raw") return;
+  setRawPads(which, [...(node.value[which] ?? []), "video"]);
+}
+
+// --- generic source output pad editors ---
+function setSourcePads(pads: PortType[]) {
+  if (node.value?.kind === "source") store.updateNode(node.value.id, { sourceOutputs: pads });
+}
+function updateSourcePad(i: number, v: PortType) {
+  if (node.value?.kind !== "source") return;
+  const arr = [...(node.value.sourceOutputs ?? [])];
+  arr[i] = v;
+  setSourcePads(arr);
+}
+function removeSourcePad(i: number) {
+  if (node.value?.kind !== "source") return;
+  setSourcePads((node.value.sourceOutputs ?? []).filter((_, j) => j !== i));
+}
+function addSourcePad() {
+  if (node.value?.kind !== "source") return;
+  setSourcePads([...(node.value.sourceOutputs ?? []), "video"]);
 }
 
 // --- asset ghost remap ---
@@ -197,61 +251,7 @@ const fmtSize = (n: number) =>
               </div>
             </Field>
           </div>
-          <div class="flex flex-col gap-3">
-            <Field>
-              <template #label
-                >-ss <span class="param-desc">{{ t("inspector.inputSSHint") }}</span></template
-              >
-              <Input
-                :model-value="node.inputSS ?? ''"
-                placeholder="10 或 00:00:10"
-                @update:model-value="(v: string) => store.updateNode(node!.id, { inputSS: v })"
-              />
-            </Field>
-            <Field>
-              <template #label
-                >-t <span class="param-desc">{{ t("inspector.inputTHint") }}</span></template
-              >
-              <Input
-                :model-value="node.inputT ?? ''"
-                placeholder="5"
-                @update:model-value="(v: string) => store.updateNode(node!.id, { inputT: v })"
-              />
-            </Field>
-            <Field>
-              <template #label
-                >-stream_loop
-                <span class="param-desc">{{ t("inspector.streamLoopHint") }}</span></template
-              >
-              <InputNumber
-                :model-value="node.streamLoop ?? null"
-                :placeholder="t('inspector.unset')"
-                @update:model-value="
-                  (v: number | null) => store.updateNode(node!.id, { streamLoop: v ?? undefined })
-                "
-              />
-            </Field>
-            <Field>
-              <template #label>{{ t("inspector.vStream") }}</template>
-              <InputNumber
-                :model-value="node.vStream ?? 0"
-                :min="0"
-                @update:model-value="
-                  (v: number | null) => store.updateNode(node!.id, { vStream: v ?? 0 })
-                "
-              />
-            </Field>
-            <Field>
-              <template #label>{{ t("inspector.aStream") }}</template>
-              <InputNumber
-                :model-value="node.aStream ?? 0"
-                :min="0"
-                @update:model-value="
-                  (v: number | null) => store.updateNode(node!.id, { aStream: v ?? 0 })
-                "
-              />
-            </Field>
-          </div>
+          <InputOptionsFields :node="node" />
         </template>
       </template>
 
@@ -288,36 +288,12 @@ const fmtSize = (n: number) =>
                   :model-value="p"
                   :options="portOptions"
                   style="width: 110px"
-                  @update:model-value="
-                    (v: string) => {
-                      const arr = [...(node!.sourceOutputs ?? [])];
-                      arr[i] = v as PortType;
-                      store.updateNode(node!.id, { sourceOutputs: arr });
-                    }
-                  "
+                  @update:model-value="(v: string) => updateSourcePad(i, v as PortType)"
                 />
-                <Button
-                  size="tiny"
-                  variant="ghost"
-                  @click="
-                    store.updateNode(node!.id, {
-                      sourceOutputs: (node!.sourceOutputs ?? []).filter((_, j) => j !== i),
-                    })
-                  "
-                  >✕</Button
-                >
+                <Button size="tiny" variant="ghost" @click="removeSourcePad(i)">✕</Button>
               </div>
               <div>
-                <Button
-                  size="tiny"
-                  dashed
-                  @click="
-                    store.updateNode(node!.id, {
-                      sourceOutputs: [...(node!.sourceOutputs ?? []), 'video'],
-                    })
-                  "
-                  >+</Button
-                >
+                <Button size="tiny" dashed @click="addSourcePad()">+</Button>
               </div>
             </div>
           </Field>
@@ -358,33 +334,12 @@ const fmtSize = (n: number) =>
                 :model-value="p"
                 :options="portOptions"
                 style="width: 110px"
-                @update:model-value="
-                  (v: string) => {
-                    const arr = [...(node!.rawInputs ?? [])];
-                    arr[i] = v as PortType;
-                    setRawPads('rawInputs', arr);
-                  }
-                "
+                @update:model-value="(v: string) => updateRawPad('rawInputs', i, v as PortType)"
               />
-              <Button
-                size="tiny"
-                variant="ghost"
-                @click="
-                  setRawPads(
-                    'rawInputs',
-                    (node!.rawInputs ?? []).filter((_, j) => j !== i),
-                  )
-                "
-                >✕</Button
-              >
+              <Button size="tiny" variant="ghost" @click="removeRawPad('rawInputs', i)">✕</Button>
             </div>
             <div>
-              <Button
-                size="tiny"
-                dashed
-                @click="setRawPads('rawInputs', [...(node!.rawInputs ?? []), 'video'])"
-                >+</Button
-              >
+              <Button size="tiny" dashed @click="addRawPad('rawInputs')">+</Button>
             </div>
           </div>
         </Field>
@@ -395,35 +350,49 @@ const fmtSize = (n: number) =>
                 :model-value="p"
                 :options="portOptions"
                 style="width: 110px"
-                @update:model-value="
-                  (v: string) => {
-                    const arr = [...(node!.rawOutputs ?? [])];
-                    arr[i] = v as PortType;
-                    setRawPads('rawOutputs', arr);
-                  }
-                "
+                @update:model-value="(v: string) => updateRawPad('rawOutputs', i, v as PortType)"
               />
-              <Button
-                size="tiny"
-                variant="ghost"
-                @click="
-                  setRawPads(
-                    'rawOutputs',
-                    (node!.rawOutputs ?? []).filter((_, j) => j !== i),
-                  )
-                "
-                >✕</Button
-              >
+              <Button size="tiny" variant="ghost" @click="removeRawPad('rawOutputs', i)">✕</Button>
             </div>
             <div>
-              <Button
-                size="tiny"
-                dashed
-                @click="setRawPads('rawOutputs', [...(node!.rawOutputs ?? []), 'video'])"
-                >+</Button
-              >
+              <Button size="tiny" dashed @click="addRawPad('rawOutputs')">+</Button>
             </div>
           </div>
+        </Field>
+      </div>
+
+      <!-- upload -->
+      <div v-else-if="node.kind === 'upload'" class="flex flex-col gap-3">
+        <Field v-for="p in specialSpec?.params ?? []" :key="p.key">
+          <template #label>
+            {{ p.key }}
+            <span v-if="p.desc" class="param-desc">{{
+              locale === "zh" ? p.desc.zh : p.desc.en
+            }}</span>
+          </template>
+          <ParamField
+            :spec="p"
+            :value="node.params?.[p.key]"
+            @update="(v: unknown) => setParam(p.key, v)"
+          />
+        </Field>
+        <InputOptionsFields :node="node" />
+      </div>
+
+      <!-- glob -->
+      <div v-else-if="node.kind === 'glob'" class="flex flex-col gap-3">
+        <Field v-for="p in specialSpec?.params ?? []" :key="p.key">
+          <template #label>
+            {{ p.key }}
+            <span v-if="p.desc" class="param-desc">{{
+              locale === "zh" ? p.desc.zh : p.desc.en
+            }}</span>
+          </template>
+          <ParamField
+            :spec="p"
+            :value="node.params?.[p.key]"
+            @update="(v: unknown) => setParam(p.key, v)"
+          />
         </Field>
       </div>
 

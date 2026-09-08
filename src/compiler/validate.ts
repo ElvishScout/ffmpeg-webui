@@ -1,14 +1,12 @@
 import type { WorkflowGraph, WorkflowNode, WorkflowEdge } from "../types/graph";
 import type { PortSpec, PortType } from "../types/filter";
-import { filterByName, sourceByName } from "../filters/registry";
+import { filterByName, sourceByName, specialByKind } from "../specs/registry";
 import { FORMATS, formatOf, formatKind } from "./formats";
 
 /** Input pads of a node, in handle order (handle id = `in-{index}`). */
 export function inputPads(node: WorkflowNode): PortSpec[] {
   switch (node.kind) {
-    case "asset":
-    case "source":
-      return [];
+    // dynamic heterogeneous pads: 1 video + `audioPads` audio — not spec-expressible
     case "stage":
     case "output": {
       const audioPads = node.audioPads ?? 1;
@@ -20,6 +18,9 @@ export function inputPads(node: WorkflowNode): PortSpec[] {
         })),
       ];
     }
+    // user-declared pads
+    case "raw":
+      return (node.rawInputs ?? ["video"]).map((type) => ({ type }));
     case "filter": {
       const spec = node.filterName ? filterByName.get(node.filterName) : undefined;
       if (!spec) return [];
@@ -29,25 +30,28 @@ export function inputPads(node: WorkflowNode): PortSpec[] {
       }
       return spec.inputs;
     }
-    case "raw":
-      return (node.rawInputs ?? ["video"]).map((type) => ({ type }));
+    case "source": {
+      const spec = node.filterName ? sourceByName.get(node.filterName) : undefined;
+      return spec?.inputs ?? [];
+    }
+    // spec-declared: asset/upload (none), glob (av)
+    default:
+      return specialByKind.get(node.kind)?.inputs ?? [];
   }
 }
 
 /** Output pads of a node (handle id = `out-{index}`). */
 export function outputPads(node: WorkflowNode): PortSpec[] {
   switch (node.kind) {
-    case "asset":
-      return [{ type: "av" }];
-    case "output":
-      return [];
+    // user-declared pads
+    case "raw":
+      return (node.rawOutputs ?? ["video"]).map((type) => ({ type }));
     case "source": {
       const spec = node.filterName ? sourceByName.get(node.filterName) : undefined;
-      if (spec) return spec.outputs.map((type) => ({ type }));
+      if (spec) return spec.outputs;
+      // generic source: pads come from node data, not a spec
       return (node.sourceOutputs ?? ["video"]).map((type) => ({ type }));
     }
-    case "stage":
-      return [{ type: "av" }];
     case "filter": {
       const spec = node.filterName ? filterByName.get(node.filterName) : undefined;
       if (!spec) return [];
@@ -58,8 +62,9 @@ export function outputPads(node: WorkflowNode): PortSpec[] {
       }
       return spec.outputs;
     }
-    case "raw":
-      return (node.rawOutputs ?? ["video"]).map((type) => ({ type }));
+    // spec-declared: asset/stage (av), output (none), upload (av), glob (av)
+    default:
+      return specialByKind.get(node.kind)?.outputs ?? [];
   }
 }
 
@@ -110,6 +115,12 @@ export function nodeDisplayName(node: WorkflowNode): string {
       return node.filename || "stage";
     case "output":
       return node.filename || "output";
+    case "upload":
+      return "upload";
+    case "glob":
+      return typeof node.params?.patterns === "string" && node.params.patterns.trim()
+        ? `glob: ${node.params.patterns.trim()}`
+        : "glob";
   }
 }
 
@@ -284,6 +295,24 @@ export function validateGraph(
             });
             break;
           }
+        }
+        break;
+      }
+      case "glob": {
+        // stream-level filter: both pads must be wired or files silently vanish
+        if (!connectedIn.has("in-0")) {
+          errors.push({
+            code: "inputUnconnected",
+            nodeId: node.id,
+            nodeName: name,
+          });
+        }
+        if (!connectedOut.has("out-0")) {
+          errors.push({
+            code: "outputUnconnected",
+            nodeId: node.id,
+            nodeName: name,
+          });
         }
         break;
       }

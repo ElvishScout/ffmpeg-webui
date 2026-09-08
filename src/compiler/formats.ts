@@ -1,4 +1,4 @@
-import type { EncodePreset, OutputFormat, WorkflowNode } from "../types/graph";
+import type { EncodePreset, OutputFormat } from "../types/graph";
 
 /** Which stream kinds a format consumes (drives validation of sink connections). */
 export type FormatKind = "av" | "video" | "audio";
@@ -143,13 +143,13 @@ export const FORMATS: Record<OutputFormat, FormatSpec> = {
  * Effective format of a sink node. Legacy graphs carry only `preset`
  * (lossless/copy implied MKV, high/fast implied MP4) — derive, don't migrate.
  */
-export function formatOf(node: Pick<WorkflowNode, "format" | "preset">): OutputFormat {
+export function formatOf(node: { format?: OutputFormat; preset?: EncodePreset }): OutputFormat {
   if (node.format) return node.format;
   const p = node.preset ?? "high";
   return p === "lossless" || p === "copy" ? "mkv" : "mp4";
 }
 
-export function formatKind(node: Pick<WorkflowNode, "format" | "preset">): FormatKind {
+export function formatKind(node: { format?: OutputFormat; preset?: EncodePreset }): FormatKind {
   return FORMATS[formatOf(node)].kind;
 }
 

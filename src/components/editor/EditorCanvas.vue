@@ -14,7 +14,7 @@ import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
 import FlowNode from "./FlowNode.vue";
 import { useGraphStore } from "../../stores/graph";
-import { sourceByName, defaultParams } from "../../filters/registry";
+import { sourceByName, defaultParams } from "../../specs/registry";
 import type { WorkflowEdge } from "../../types/graph";
 
 const store = useGraphStore();
@@ -105,7 +105,7 @@ function onDrop(event: DragEvent) {
       }
     | { type: "filter"; name: string }
     | { type: "source"; name?: string }
-    | { type: "special"; kind: "stage" | "output" | "raw" };
+    | { type: "special"; kind: "stage" | "output" | "raw" | "upload" | "glob" };
   const position = screenToFlowCoordinate({
     x: event.clientX,
     y: event.clientY,
@@ -138,6 +138,8 @@ function onDrop(event: DragEvent) {
     });
   } else if (parsed.kind === "stage" || parsed.kind === "output") {
     store.addSinkNode(parsed.kind, "mp4", position);
+  } else if (parsed.kind === "upload" || parsed.kind === "glob") {
+    store.addNode({ kind: parsed.kind, params: {}, position });
   } else {
     store.addNode({
       kind: parsed.kind,

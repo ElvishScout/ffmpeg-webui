@@ -23,7 +23,11 @@ const isGhost = computed(
 
 const hasError = computed(() => store.validation.errors.some((e) => e.nodeId === props.id));
 
-const kindLabel = computed(() => node.value.filterName ?? node.value.kind);
+const kindLabel = computed(() =>
+  node.value.kind === "filter" || node.value.kind === "source"
+    ? (node.value.filterName ?? node.value.kind)
+    : node.value.kind,
+);
 
 const portText = (type: string) => (type === "video" ? "v" : type === "audio" ? "a" : "av");
 </script>

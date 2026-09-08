@@ -119,6 +119,8 @@ export default {
   },
   run: {
     segment: "段 {current}/{total}",
+    iteration: "迭代 {current}/{total}",
+    failedTag: "失败",
     loadingCore: "正在加载 ffmpeg 核心（首次较慢）…",
     done: "完成",
     failed: "失败",
@@ -157,6 +159,14 @@ export default {
     copied: "已复制",
     segmentLabel: "段 {n}",
     invalid: "图未通过校验，无法生成命令",
+    batchNote: "包含 upload 节点：命令在每次迭代时按当前文件生成，此处无法预览",
+  },
+  upload: {
+    title: "上传文件",
+    hint: "为每个 upload 节点选择文件（至少 1 个）；多条文件流按文件名排序后逐一配对，任一流耗尽即结束。",
+    pick: "选择文件",
+    count: "已选 {n} 个文件",
+    start: "开始运行",
   },
   errors: {
     opfsUnsupported: "当前浏览器不支持 OPFS，素材库不可用",
