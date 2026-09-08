@@ -1,8 +1,8 @@
-import coreURLumd from '../../node_modules/@ffmpeg/core-mt/dist/umd/ffmpeg-core.js?url'
-import wasmURLraw from '../../node_modules/@ffmpeg/core-mt/dist/umd/ffmpeg-core.wasm?url'
-import workerURLumd from '../../node_modules/@ffmpeg/core-mt/dist/umd/ffmpeg-core.worker.js?url'
-import type { Executor } from '../types/executor'
-import type { Job, ExecEvents, ProducedFile } from '../types/job'
+import coreURLumd from "../../node_modules/@ffmpeg/core-mt/dist/umd/ffmpeg-core.js?url";
+import wasmURLraw from "../../node_modules/@ffmpeg/core-mt/dist/umd/ffmpeg-core.wasm?url";
+import workerURLumd from "../../node_modules/@ffmpeg/core-mt/dist/umd/ffmpeg-core.worker.js?url";
+import type { Executor } from "../types/executor";
+import type { Job, ExecEvents, ProducedFile } from "../types/job";
 
 // Why not @ffmpeg/ffmpeg's wrapper: its worker is hardcoded type:"module",
 // forcing coreURL to be an ESM module — but emscripten pthreads are always
@@ -11,12 +11,14 @@ import type { Job, ExecEvents, ProducedFile } from '../types/job'
 // drive the UMD core from our own classic worker, loaded from a Blob.
 
 export const sabSupported =
-  typeof SharedArrayBuffer !== 'undefined' &&
-  typeof crossOriginIsolated !== 'undefined' &&
-  crossOriginIsolated
+  typeof SharedArrayBuffer !== "undefined" &&
+  typeof crossOriginIsolated !== "undefined" &&
+  crossOriginIsolated;
 
 export class CancelledError extends Error {
-  constructor() { super('cancelled') }
+  constructor() {
+    super("cancelled");
+  }
 }
 
 /**
@@ -25,72 +27,76 @@ export class CancelledError extends Error {
  */
 function workerMain() {
   const scope = self as unknown as {
-    onmessage: (e: MessageEvent) => void
-    postMessage: (msg: unknown, transfer?: Transferable[]) => void
-    importScripts: (url: string) => void
-    createFFmpegCore: (opts: { mainScriptUrlOrBlob: string }) => Promise<CoreModule>
-  }
+    onmessage: (e: MessageEvent) => void;
+    postMessage: (msg: unknown, transfer?: Transferable[]) => void;
+    importScripts: (url: string) => void;
+    createFFmpegCore: (opts: { mainScriptUrlOrBlob: string }) => Promise<CoreModule>;
+  };
   // subset of the emscripten Module surface we use
   interface CoreModule {
-    exec: (...args: string[]) => void
-    ret: number
-    reset: () => void
-    setLogger: (fn: (d: { message: string }) => void) => void
-    setProgress: (fn: (d: { progress: number; time: number }) => void) => void
+    exec: (...args: string[]) => void;
+    ret: number;
+    reset: () => void;
+    setLogger: (fn: (d: { message: string }) => void) => void;
+    setProgress: (fn: (d: { progress: number; time: number }) => void) => void;
     FS: {
-      writeFile: (path: string, data: Uint8Array) => void
-      readFile: (path: string) => Uint8Array
-      unlink: (path: string) => void
-    }
+      writeFile: (path: string, data: Uint8Array) => void;
+      readFile: (path: string) => Uint8Array;
+      unlink: (path: string) => void;
+    };
   }
-  let ffmpeg: CoreModule | null = null
+  let ffmpeg: CoreModule | null = null;
   scope.onmessage = async (e: MessageEvent) => {
-    const { type } = e.data
+    const { type } = e.data;
     try {
-      if (type === 'load') {
-        const { coreURL, wasmURL, workerURL } = e.data
-        scope.importScripts(coreURL) // UMD: top-level var becomes global
+      if (type === "load") {
+        const { coreURL, wasmURL, workerURL } = e.data;
+        scope.importScripts(coreURL); // UMD: top-level var becomes global
         ffmpeg = await scope.createFFmpegCore({
           // hash hack: the core's locateFile reads wasm/worker URLs from here
           mainScriptUrlOrBlob: `${coreURL}#${btoa(JSON.stringify({ wasmURL, workerURL }))}`,
-        })
-        ffmpeg.setLogger((d) => scope.postMessage({ type: 'log', message: d.message }))
-        ffmpeg.setProgress((d) => scope.postMessage({ type: 'progress', progress: d.progress }))
-        scope.postMessage({ type: 'done', op: 'load' })
-      } else if (type === 'exec') {
-        ffmpeg!.exec(...e.data.args)
-        const code = ffmpeg!.ret
-        ffmpeg!.reset()
-        scope.postMessage({ type: 'done', op: 'exec', code })
-      } else if (type === 'write') {
-        ffmpeg!.FS.writeFile(e.data.path, e.data.data)
-        scope.postMessage({ type: 'done', op: 'write' })
-      } else if (type === 'read') {
-        const data = ffmpeg!.FS.readFile(e.data.path)
-        scope.postMessage({ type: 'done', op: 'read', data }, [data.buffer])
-      } else if (type === 'delete') {
-        try { ffmpeg!.FS.unlink(e.data.path) } catch { /* already gone */ }
-        scope.postMessage({ type: 'done', op: 'delete' })
+        });
+        ffmpeg.setLogger((d) => scope.postMessage({ type: "log", message: d.message }));
+        ffmpeg.setProgress((d) => scope.postMessage({ type: "progress", progress: d.progress }));
+        scope.postMessage({ type: "done", op: "load" });
+      } else if (type === "exec") {
+        ffmpeg!.exec(...e.data.args);
+        const code = ffmpeg!.ret;
+        ffmpeg!.reset();
+        scope.postMessage({ type: "done", op: "exec", code });
+      } else if (type === "write") {
+        ffmpeg!.FS.writeFile(e.data.path, e.data.data);
+        scope.postMessage({ type: "done", op: "write" });
+      } else if (type === "read") {
+        const data = ffmpeg!.FS.readFile(e.data.path);
+        scope.postMessage({ type: "done", op: "read", data }, [data.buffer]);
+      } else if (type === "delete") {
+        try {
+          ffmpeg!.FS.unlink(e.data.path);
+        } catch {
+          /* already gone */
+        }
+        scope.postMessage({ type: "done", op: "delete" });
       }
     } catch (err) {
-      scope.postMessage({ type: 'error', message: String(err) })
+      scope.postMessage({ type: "error", message: String(err) });
     }
-  }
+  };
 }
 
 async function toBlobURL(url: string, mime: string): Promise<string> {
   const buf = await fetch(url).then((r) => {
-    if (!r.ok) throw new Error(`failed to fetch ${url}: ${r.status}`)
-    return r.arrayBuffer()
-  })
-  return URL.createObjectURL(new Blob([buf], { type: mime }))
+    if (!r.ok) throw new Error(`failed to fetch ${url}: ${r.status}`);
+    return r.arrayBuffer();
+  });
+  return URL.createObjectURL(new Blob([buf], { type: mime }));
 }
 
 /** Parse `time=00:00:01.23` from ffmpeg stderr stats lines. */
 function parseTimeSeconds(line: string): number | null {
-  const t = line.match(/\btime=(\d+):(\d+):([\d.]+)/)
-  if (t) return Number(t[1]) * 3600 + Number(t[2]) * 60 + Number(t[3])
-  return null
+  const t = line.match(/\btime=(\d+):(\d+):([\d.]+)/);
+  if (t) return Number(t[1]) * 3600 + Number(t[2]) * 60 + Number(t[3]);
+  return null;
 }
 
 /**
@@ -106,71 +112,100 @@ function parseTimeSeconds(line: string): number | null {
  * compiled Job (command preview stays canonical).
  */
 function patchArgsForCoreMt(args: string[]): string[] {
-  const patch: string[] = []
-  if (!args.includes('-filter_threads')) patch.push('-filter_threads', '1')
-  if (!args.includes('-filter_complex_threads')) patch.push('-filter_complex_threads', '1')
+  const patch: string[] = [];
+  if (!args.includes("-filter_threads")) patch.push("-filter_threads", "1");
+  if (!args.includes("-filter_complex_threads")) patch.push("-filter_complex_threads", "1");
   const codecs = new Set(
-    args.flatMap((a, i) => ((a === '-c:v' || a === '-c:a') && i + 1 < args.length ? [args[i + 1]] : [])),
-  )
-  if (!args.includes('-threads') && (codecs.has('prores_ks') || codecs.has('libvpx') || codecs.has('libvpx-vp9'))) {
-    patch.push('-threads', '1')
+    args.flatMap((a, i) =>
+      (a === "-c:v" || a === "-c:a") && i + 1 < args.length ? [args[i + 1]] : [],
+    ),
+  );
+  if (
+    !args.includes("-threads") &&
+    (codecs.has("prores_ks") || codecs.has("libvpx") || codecs.has("libvpx-vp9"))
+  ) {
+    patch.push("-threads", "1");
   }
-  if (codecs.has('libx265') && !args.includes('-x265-params')) patch.push('-x265-params', 'pools=1')
-  if (!patch.length) return args
-  const out = [...args]
-  out.splice(out.length - 1, 0, ...patch) // before the output filename
-  return out
+  if (codecs.has("libx265") && !args.includes("-x265-params"))
+    patch.push("-x265-params", "pools=1");
+  if (!patch.length) return args;
+  const out = [...args];
+  out.splice(out.length - 1, 0, ...patch); // before the output filename
+  return out;
 }
 
 interface CoreWorker {
-  call(op: string, payload?: object, transfer?: Transferable[]): Promise<Record<string, never> & { code?: number; data?: Uint8Array }>
-  setHandlers(handlers: { onLog?: (m: string) => void; onProgress?: (ratio: number) => void }): void
-  terminate(): void
+  call(
+    op: string,
+    payload?: object,
+    transfer?: Transferable[],
+  ): Promise<Record<string, never> & { code?: number; data?: Uint8Array }>;
+  setHandlers(handlers: {
+    onLog?: (m: string) => void;
+    onProgress?: (ratio: number) => void;
+  }): void;
+  terminate(): void;
 }
 
 /** Spawn the classic wrapper worker and load the UMD core into it. */
 export async function spawnCoreWorker(onLog?: (m: string) => void): Promise<CoreWorker> {
   const [core, wasm, pthread] = await Promise.all([
-    toBlobURL(coreURLumd, 'text/javascript'),
-    toBlobURL(wasmURLraw, 'application/wasm'),
-    toBlobURL(workerURLumd, 'text/javascript'),
-  ])
+    toBlobURL(coreURLumd, "text/javascript"),
+    toBlobURL(wasmURLraw, "application/wasm"),
+    toBlobURL(workerURLumd, "text/javascript"),
+  ]);
   const workerURL = URL.createObjectURL(
-    new Blob([`(${workerMain.toString()})()`], { type: 'text/javascript' }),
-  )
-  const worker = new Worker(workerURL) // classic worker: importScripts available
-  const blobURLs = [core, wasm, pthread, workerURL]
+    new Blob([`(${workerMain.toString()})()`], { type: "text/javascript" }),
+  );
+  const worker = new Worker(workerURL); // classic worker: importScripts available
+  const blobURLs = [core, wasm, pthread, workerURL];
 
-  let handlers: { onLog?: (m: string) => void; onProgress?: (ratio: number) => void } = {}
-  let resolver: ((v: never) => void) | null = null
-  let rejecter: ((e: Error) => void) | null = null
+  let handlers: {
+    onLog?: (m: string) => void;
+    onProgress?: (ratio: number) => void;
+  } = {};
+  let resolver: ((v: never) => void) | null = null;
+  let rejecter: ((e: Error) => void) | null = null;
 
   worker.onmessage = (e: MessageEvent) => {
-    const msg = e.data
-    if (msg.type === 'log') handlers.onLog?.(msg.message)
-    else if (msg.type === 'progress') handlers.onProgress?.(msg.progress)
-    else if (msg.type === 'done') { resolver?.(msg as never); resolver = null; rejecter = null }
-    else if (msg.type === 'error') { rejecter?.(new Error(msg.message)); resolver = null; rejecter = null }
-  }
-  worker.onerror = (e) => { rejecter?.(new Error(e.message)); resolver = null; rejecter = null }
+    const msg = e.data;
+    if (msg.type === "log") handlers.onLog?.(msg.message);
+    else if (msg.type === "progress") handlers.onProgress?.(msg.progress);
+    else if (msg.type === "done") {
+      resolver?.(msg as never);
+      resolver = null;
+      rejecter = null;
+    } else if (msg.type === "error") {
+      rejecter?.(new Error(msg.message));
+      resolver = null;
+      rejecter = null;
+    }
+  };
+  worker.onerror = (e) => {
+    rejecter?.(new Error(e.message));
+    resolver = null;
+    rejecter = null;
+  };
 
   const api: CoreWorker = {
     call(op, payload = {}, transfer = []) {
       return new Promise((resolve, reject) => {
-        resolver = resolve as never
-        rejecter = reject
-        worker.postMessage({ type: op, ...payload }, transfer)
-      })
+        resolver = resolve as never;
+        rejecter = reject;
+        worker.postMessage({ type: op, ...payload }, transfer);
+      });
     },
-    setHandlers(h) { handlers = h },
+    setHandlers(h) {
+      handlers = h;
+    },
     terminate() {
-      worker.terminate()
-      for (const u of blobURLs) URL.revokeObjectURL(u)
+      worker.terminate();
+      for (const u of blobURLs) URL.revokeObjectURL(u);
     },
-  }
-  await api.call('load', { coreURL: core, wasmURL: wasm, workerURL: pthread })
-  onLog?.('[wasm] core loaded')
-  return api
+  };
+  await api.call("load", { coreURL: core, wasmURL: wasm, workerURL: pthread });
+  onLog?.("[wasm] core loaded");
+  return api;
 }
 
 /**
@@ -178,31 +213,31 @@ export async function spawnCoreWorker(onLog?: (m: string) => void): Promise<Core
  * first run. terminate() destroys the worker; it is rebuilt on demand.
  */
 export class WasmExecutor implements Executor {
-  readonly id = 'wasm'
-  readonly label = 'ffmpeg-wasm (browser)'
-  private core: CoreWorker | null = null
-  private loading: Promise<CoreWorker> | null = null
-  running = false
-  private cancelled = false
+  readonly id = "wasm";
+  readonly label = "ffmpeg-wasm (browser)";
+  private core: CoreWorker | null = null;
+  private loading: Promise<CoreWorker> | null = null;
+  running = false;
+  private cancelled = false;
 
   private async ensure(events: ExecEvents): Promise<CoreWorker> {
-    if (this.core) return this.core
+    if (this.core) return this.core;
     if (!this.loading) {
-      events.onLog?.('[wasm] loading @ffmpeg/core-mt (~30MB)…')
+      events.onLog?.("[wasm] loading @ffmpeg/core-mt (~30MB)…");
       this.loading = spawnCoreWorker(events.onLog).then((w) => {
-        this.core = w
-        return w
-      })
+        this.core = w;
+        return w;
+      });
     }
-    return this.loading
+    return this.loading;
   }
 
   cancel(): void {
-    this.cancelled = true
+    this.cancelled = true;
     if (this.core) {
-      this.core.terminate()
-      this.core = null
-      this.loading = null
+      this.core.terminate();
+      this.core = null;
+      this.loading = null;
     }
   }
 
@@ -211,78 +246,89 @@ export class WasmExecutor implements Executor {
     assets: Record<string, Uint8Array>,
     events: ExecEvents,
   ): Promise<ProducedFile[]> {
-    if (this.running) throw new Error('executor busy')
-    this.cancelled = false
-    const core = await this.ensure(events)
-    this.running = true
-    const produced: ProducedFile[] = []
+    if (this.running) throw new Error("executor busy");
+    this.cancelled = false;
+    const core = await this.ensure(events);
+    this.running = true;
+    const produced: ProducedFile[] = [];
 
-    core.setHandlers({ onLog: events.onLog })
+    core.setHandlers({ onLog: events.onLog });
 
     try {
       for (let s = 0; s < job.segments.length; s++) {
-        if (this.cancelled) throw new CancelledError()
-        const seg = job.segments[s]
-        events.onSegmentStart?.(s, job.segments.length)
+        if (this.cancelled) throw new CancelledError();
+        const seg = job.segments[s];
+        events.onSegmentStart?.(s, job.segments.length);
 
         // materialize inputs
         for (const input of seg.inputs) {
-          let bytes: Uint8Array
-          if (input.source.kind === 'asset') {
-            bytes = assets[input.source.asset.id]
-            if (!bytes) throw new Error(`missing bytes for asset ${input.source.asset.filename}`)
+          let bytes: Uint8Array;
+          if (input.source.kind === "asset") {
+            bytes = assets[input.source.asset.id];
+            if (!bytes) throw new Error(`missing bytes for asset ${input.source.asset.filename}`);
           } else {
             const prev = produced.find(
-              (p) => p.kind === 'stage' && p.nodeId === (input.source as { nodeId: string }).nodeId,
-            )
-            if (!prev) throw new Error(`stage output missing for node ${(input.source as { nodeId: string }).nodeId}`)
-            bytes = prev.data
+              (p) => p.kind === "stage" && p.nodeId === (input.source as { nodeId: string }).nodeId,
+            );
+            if (!prev)
+              throw new Error(
+                `stage output missing for node ${(input.source as { nodeId: string }).nodeId}`,
+              );
+            bytes = prev.data;
           }
-          await core.call('write', { path: input.file, data: bytes }, [bytes.buffer])
+          await core.call("write", { path: input.file, data: bytes }, [bytes.buffer]);
         }
 
         // progress: prefer core progress events, fall back to stderr time=
         core.setHandlers({
           onLog: (m) => {
-            events.onLog?.(m)
-            const t = parseTimeSeconds(m)
+            events.onLog?.(m);
+            const t = parseTimeSeconds(m);
             if (t !== null && seg.expectedDuration) {
-              events.onProgress?.(s, Math.min(0.99, t / seg.expectedDuration))
+              events.onProgress?.(s, Math.min(0.99, t / seg.expectedDuration));
             }
           },
           onProgress: (ratio) => {
-            if (ratio >= 0 && ratio <= 1) events.onProgress?.(s, Math.min(0.99, ratio))
+            if (ratio >= 0 && ratio <= 1) events.onProgress?.(s, Math.min(0.99, ratio));
           },
-        })
+        });
 
-        const patchedArgs = patchArgsForCoreMt(seg.args)
+        const patchedArgs = patchArgsForCoreMt(seg.args);
         if (patchedArgs !== seg.args) {
-          events.onLog?.('[wasm] core-mt workaround: forced -filter_threads 1 -filter_complex_threads 1 (filtergraph MT deadlocks)')
+          events.onLog?.(
+            "[wasm] core-mt workaround: forced -filter_threads 1 -filter_complex_threads 1 (filtergraph MT deadlocks)",
+          );
         }
-        const res = await core.call('exec', { args: patchedArgs })
-        if (this.cancelled) throw new CancelledError()
-        if (res.code !== 0) throw new Error(`ffmpeg exited with code ${res.code} on segment ${s + 1}`)
+        const res = await core.call("exec", { args: patchedArgs });
+        if (this.cancelled) throw new CancelledError();
+        if (res.code !== 0)
+          throw new Error(`ffmpeg exited with code ${res.code} on segment ${s + 1}`);
 
         // harvest outputs
-        const segOut: ProducedFile[] = []
+        const segOut: ProducedFile[] = [];
         for (const out of seg.outputs) {
-          const res2 = await core.call('read', { path: out.file })
-          const file: ProducedFile = { nodeId: out.nodeId, kind: out.kind, filename: out.file, data: res2.data! }
-          produced.push(file)
-          segOut.push(file)
-          await core.call('delete', { path: out.file })
+          const res2 = await core.call("read", { path: out.file });
+          const file: ProducedFile = {
+            nodeId: out.nodeId,
+            kind: out.kind,
+            filename: out.file,
+            data: res2.data!,
+          };
+          produced.push(file);
+          segOut.push(file);
+          await core.call("delete", { path: out.file });
         }
         // free inputs to keep memory bounded
-        for (const input of seg.inputs) await core.call('delete', { path: input.file })
-        events.onProgress?.(s, 1)
-        events.onSegmentDone?.(s, segOut)
+        for (const input of seg.inputs) await core.call("delete", { path: input.file });
+        events.onProgress?.(s, 1);
+        events.onSegmentDone?.(s, segOut);
       }
-      return produced.filter((p) => p.kind === 'output')
+      return produced.filter((p) => p.kind === "output");
     } finally {
-      core.setHandlers({})
-      this.running = false
+      core.setHandlers({});
+      this.running = false;
     }
   }
 }
 
-export const executors: Executor[] = [new WasmExecutor()]
+export const executors: Executor[] = [new WasmExecutor()];

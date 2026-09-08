@@ -1,85 +1,93 @@
-import type { PortType } from './filter'
+import type { PortType } from "./filter";
 
-export const SCHEMA_VERSION = 1 as const
+export const SCHEMA_VERSION = 1 as const;
 
 /** Reference to an asset. Imported workflows may reference assets not present locally. */
 export interface AssetRef {
-  id: string
-  filename: string
-  size: number
-  mime: string
+  id: string;
+  filename: string;
+  size: number;
+  mime: string;
 }
 
-export type NodeKind = 'asset' | 'source' | 'filter' | 'raw' | 'stage' | 'output'
+export type NodeKind = "asset" | "source" | "filter" | "raw" | "stage" | "output";
 
-export type EncodePreset = 'lossless' | 'high' | 'fast' | 'copy'
+export type EncodePreset = "lossless" | "high" | "fast" | "copy";
 
 /** Output container/codec family. Orthogonal to EncodePreset (encode strategy). */
 export type OutputFormat =
   // video containers (preset applies)
-  | 'mp4' | 'mkv' | 'webm'
+  | "mp4"
+  | "mkv"
+  | "webm"
   // video containers with a fixed codec (preset N/A)
-  | 'hevc' | 'prores'
+  | "hevc"
+  | "prores"
   // audio only
-  | 'mp3' | 'm4a' | 'flac' | 'wav' | 'opus'
+  | "mp3"
+  | "m4a"
+  | "flac"
+  | "wav"
+  | "opus"
   // animated image (video only)
-  | 'gif' | 'apng'
+  | "gif"
+  | "apng";
 
 export interface WorkflowNode {
-  id: string
-  kind: NodeKind
-  position: { x: number; y: number }
+  id: string;
+  kind: NodeKind;
+  position: { x: number; y: number };
   /** kind = asset */
-  assetRef?: AssetRef
+  assetRef?: AssetRef;
   /** kind = asset: input-side options (applied before -i) */
-  inputSS?: string
-  inputT?: string
-  streamLoop?: number
+  inputSS?: string;
+  inputT?: string;
+  streamLoop?: number;
   /** kind = asset: which stream of the container to use (default 0) */
-  vStream?: number
-  aStream?: number
+  vStream?: number;
+  aStream?: number;
   /** kind = source: lavfi source filter, e.g. "color=c=black:s=1280x720:d=5" */
-  sourceFilter?: string
-  sourceOutputs?: PortType[]
+  sourceFilter?: string;
+  sourceOutputs?: PortType[];
   /** kind = filter */
-  filterName?: string
-  params?: Record<string, unknown>
+  filterName?: string;
+  params?: Record<string, unknown>;
   /** dynamic input pad count (filters with inputsFrom) */
-  inputCount?: number
+  inputCount?: number;
   /** dynamic output pad count (filters with outputsFrom) */
-  outputCount?: number
+  outputCount?: number;
   /** kind = raw */
-  rawFilter?: string
-  rawInputs?: PortType[]
-  rawOutputs?: PortType[]
+  rawFilter?: string;
+  rawInputs?: PortType[];
+  rawOutputs?: PortType[];
   /** kind = stage | output */
-  preset?: EncodePreset
+  preset?: EncodePreset;
   /** kind = stage | output: container/codec family; undefined = derived from preset (legacy graphs) */
-  format?: OutputFormat
-  filename?: string
+  format?: OutputFormat;
+  filename?: string;
   /** number of audio input pads (default 1, 0 = video only) */
-  audioPads?: number
+  audioPads?: number;
   /** extra raw ffmpeg output args, e.g. "-movflags +faststart" */
-  advancedArgs?: string
+  advancedArgs?: string;
   /** kind = stage | output, format = gif: frames per second (default 15) */
-  gifFps?: number
+  gifFps?: number;
   /** kind = stage | output, format = gif: output width in px, height auto (default 480) */
-  gifWidth?: number
+  gifWidth?: number;
 }
 
 export interface WorkflowEdge {
-  id: string
-  source: string
+  id: string;
+  source: string;
   /** handle id, e.g. "out-0" */
-  sourceHandle: string
-  target: string
+  sourceHandle: string;
+  target: string;
   /** handle id, e.g. "in-0" */
-  targetHandle: string
+  targetHandle: string;
 }
 
 export interface WorkflowGraph {
-  schemaVersion: number
-  name: string
-  nodes: WorkflowNode[]
-  edges: WorkflowEdge[]
+  schemaVersion: number;
+  name: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
 }

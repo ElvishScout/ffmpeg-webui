@@ -1,26 +1,28 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { NInputNumber, NInput, NSwitch, NSelect, NColorPicker } from 'naive-ui'
-import type { ParamSpec } from '../../types/filter'
+import { computed } from "vue";
+import { NInputNumber, NInput, NSwitch, NSelect, NColorPicker } from "naive-ui";
+import type { ParamSpec } from "../../types/filter";
 
-const props = defineProps<{ spec: ParamSpec; value: unknown }>()
-const emit = defineEmits<{ (e: 'update', value: unknown): void }>()
+const props = defineProps<{ spec: ParamSpec; value: unknown }>();
+const emit = defineEmits<{ (e: "update", value: unknown): void }>();
 
 const num = computed<number | null>({
-  get: () => (typeof props.value === 'number' ? props.value : (props.spec.default as number) ?? null),
-  set: (v) => emit('update', v),
-})
+  get: () =>
+    typeof props.value === "number" ? props.value : ((props.spec.default as number) ?? null),
+  set: (v) => emit("update", v),
+});
 const str = computed<string>({
-  get: () => (typeof props.value === 'string' ? props.value : (props.spec.default as string) ?? ''),
-  set: (v) => emit('update', v),
-})
+  get: () =>
+    typeof props.value === "string" ? props.value : ((props.spec.default as string) ?? ""),
+  set: (v) => emit("update", v),
+});
 const bool = computed<boolean>({
   get: () => Boolean(props.value ?? props.spec.default),
-  set: (v) => emit('update', v),
-})
+  set: (v) => emit("update", v),
+});
 const selectOptions = computed(() =>
   (props.spec.options ?? []).map((o) => ({ value: o.value, label: o.value })),
-)
+);
 </script>
 
 <template>
@@ -52,7 +54,16 @@ const selectOptions = computed(() =>
 </template>
 
 <style scoped>
-.color-field { display: flex; gap: 6px; align-items: center; }
-.color-field :deep(.n-color-picker) { width: 90px; flex: none; }
-.color-field :deep(.n-input) { flex: 1; }
+.color-field {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.color-field :deep(.n-color-picker) {
+  width: 90px;
+  flex: none;
+}
+.color-field :deep(.n-input) {
+  flex: 1;
+}
 </style>
