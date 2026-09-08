@@ -150,11 +150,10 @@ const fmtSize = (n: number) =>
 
 <template>
   <div class="inspector">
-    <div class="inspector__title">{{ t("inspector.title") }}</div>
     <div v-if="!node" class="inspector__empty">{{ t("inspector.empty") }}</div>
 
     <template v-else>
-      <div class="inspector__kind">{{ nodeDisplayName(node) }}</div>
+      <div class="inspector__title">{{ nodeDisplayName(node) }}</div>
 
       <!-- asset -->
       <template v-if="node.kind === 'asset'">
@@ -519,10 +518,6 @@ const fmtSize = (n: number) =>
 .inspector__empty {
   color: #6b7280;
   font-size: 12px;
-}
-.inspector__kind {
-  font-size: 12px;
-  color: #9ca3af;
 }
 .param-desc {
   color: #6b7280;
