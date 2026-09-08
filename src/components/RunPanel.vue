@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
-import { NButton, NProgress, NScrollbar, NTag, useMessage } from "naive-ui";
+import Button from "./ui/Button.vue";
+import Progress from "./ui/Progress.vue";
+import Tag from "./ui/Tag.vue";
+import { toast } from "./ui/toast";
 import { useRunStore } from "../stores/run";
 import { useAssetsStore } from "../stores/assets";
 import type { ProducedFile } from "../types/job";
@@ -9,7 +12,6 @@ import type { ProducedFile } from "../types/job";
 const { t } = useI18n();
 const store = useRunStore();
 const assetsStore = useAssetsStore();
-const message = useMessage();
 
 const statusLabel = computed(() => {
   switch (store.status) {
@@ -81,7 +83,7 @@ async function saveToAssets(f: ProducedFile) {
   const mime =
     f.kind === "output" || f.kind === "stage" ? guessMime(ext) : "application/octet-stream";
   await assetsStore.upload(new File([f.data.buffer as ArrayBuffer], f.filename, { type: mime }));
-  message.success(t("run.savedToAssets"));
+  toast.success(t("run.savedToAssets"));
 }
 function guessMime(ext: string): string {
   if (["mp4", "mkv", "webm", "mov", "avi"].includes(ext))
@@ -101,14 +103,12 @@ function guessMime(ext: string): string {
     <div class="run__title">{{ t("run.title") }}</div>
 
     <div v-if="store.status !== 'idle'" class="run__status">
-      <NTag :type="statusType" size="small">{{ statusLabel }}</NTag>
-      <NProgress
+      <Tag :type="statusType" size="small">{{ statusLabel }}</Tag>
+      <Progress
         v-if="store.running && store.segmentTotal > 0"
-        type="line"
         :percentage="
           Math.round(((store.segmentIndex + store.segmentRatio) / store.segmentTotal) * 100)
         "
-        :height="10"
         processing
       />
       <div v-if="store.error" class="run__error">{{ store.error }}</div>
@@ -118,21 +118,21 @@ function guessMime(ext: string): string {
       <div class="run__section">{{ t("run.outputs") }}</div>
       <div v-for="f in store.outputs" :key="f.nodeId + f.filename" class="run__output">
         <div class="run__output-head">
-          <NTag size="tiny" :type="f.kind === 'output' ? 'success' : 'info'" :bordered="false">
+          <Tag size="tiny" :type="f.kind === 'output' ? 'success' : 'info'">
             {{ f.kind === "output" ? t("run.outputFile") : t("run.stageFile") }}
-          </NTag>
+          </Tag>
           <span class="run__output-name">{{ f.filename }}</span>
         </div>
         <div class="run__output-actions">
-          <NButton
+          <Button
             v-if="isPlayable(f)"
             size="tiny"
             @click="previewing = previewing === f.filename ? null : f.filename"
           >
             {{ t("run.preview") }}
-          </NButton>
-          <NButton size="tiny" @click="download(f)">{{ t("run.download") }}</NButton>
-          <NButton size="tiny" @click="saveToAssets(f)">{{ t("run.saveToAssets") }}</NButton>
+          </Button>
+          <Button size="tiny" @click="download(f)">{{ t("run.download") }}</Button>
+          <Button size="tiny" @click="saveToAssets(f)">{{ t("run.saveToAssets") }}</Button>
         </div>
         <div v-if="previewing === f.filename" class="run__preview">
           <img v-if="isImage(f)" :src="previewUrl(f)" alt="" />
@@ -144,10 +144,8 @@ function guessMime(ext: string): string {
 
     <template v-if="store.logs.length">
       <div class="run__section">{{ t("run.logs") }}</div>
-      <div ref="logBox" class="run__logs">
-        <NScrollbar style="max-height: 240px">
-          <pre>{{ store.logs.join("\n") }}</pre>
-        </NScrollbar>
+      <div ref="logBox" class="run__logs max-h-60 overflow-y-auto">
+        <pre>{{ store.logs.join("\n") }}</pre>
       </div>
     </template>
   </div>
@@ -170,10 +168,10 @@ function guessMime(ext: string): string {
 }
 .run__error {
   color: #ef4444;
-  font-size: 12px;
+  font-size: 13px;
 }
 .run__section {
-  font-size: 12px;
+  font-size: 13px;
   color: #9ca3af;
   margin-top: 6px;
 }
@@ -192,7 +190,7 @@ function guessMime(ext: string): string {
   align-items: center;
 }
 .run__output-name {
-  font-size: 12px;
+  font-size: 13px;
   word-break: break-all;
 }
 .run__output-actions {

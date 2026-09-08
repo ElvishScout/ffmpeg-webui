@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { NInput, NButton } from "naive-ui";
+import Input from "../ui/Input.vue";
+import Button from "../ui/Button.vue";
 import { FILTER_REGISTRY, FILTER_CATEGORIES, SPECIAL_NODES } from "../../filters/registry";
 import { useGraphStore } from "../../stores/graph";
 
@@ -72,7 +73,7 @@ const desc = (d?: { zh: string; en: string }) => (locale.value === "zh" ? d?.zh 
 
 <template>
   <div class="palette">
-    <NInput v-model:value="search" size="small" :placeholder="t('palette.search')" clearable />
+    <Input v-model="search" class="mx-2.5 mb-0.5" :placeholder="t('palette.search')" clearable />
 
     <div class="palette__cats">
       <div v-for="g in filtered" :key="g.cat" class="pf-group">
@@ -84,11 +85,11 @@ const desc = (d?: { zh: string; en: string }) => (locale.value === "zh" ? d?.zh 
         </div>
         <template v-if="!collapsed.has(g.cat)">
           <div class="pf-items">
-            <NButton
+            <Button
               v-for="item in g.items"
               :key="item.name"
               size="tiny"
-              tertiary
+              variant="ghost"
               class="pf-item"
               :title="desc(item.desc)"
               draggable
@@ -97,7 +98,7 @@ const desc = (d?: { zh: string; en: string }) => (locale.value === "zh" ? d?.zh 
             >
               {{ item.name
               }}<span v-if="item.desc" class="pf-item__desc">{{ desc(item.desc) }}</span>
-            </NButton>
+            </Button>
           </div>
         </template>
       </div>
@@ -112,11 +113,6 @@ const desc = (d?: { zh: string; en: string }) => (locale.value === "zh" ? d?.zh 
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-top: 4px;
-}
-.palette > .n-input {
-  margin: 0 10px 2px;
-  width: auto;
 }
 .palette__cats {
   flex: 1;
@@ -154,12 +150,16 @@ const desc = (d?: { zh: string; en: string }) => (locale.value === "zh" ? d?.zh 
 .pf-item {
   cursor: pointer; /* click-to-add is the primary gesture; drag uses its own ghost */
   max-width: 100%;
-}
-.pf-item :deep(.n-button__content) {
   min-width: 0; /* allow shrink; no overflow:hidden here or descenders get clipped */
+  background: #26262e;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+.pf-item:hover {
+  background: #30303a;
 }
 .pf-item__desc {
-  font-size: 11px;
+  font-size: 12px;
   color: #8a8a94;
   margin-left: 4px;
   min-width: 0;

@@ -1,4 +1,8 @@
 export default {
+  common: {
+    confirm: "Confirm",
+    cancel: "Cancel",
+  },
   app: {
     title: "ffmpeg-webui",
     run: "Run",

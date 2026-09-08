@@ -1,18 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import {
-  NForm,
-  NFormItem,
-  NInput,
-  NInputNumber,
-  NSelect,
-  NButton,
-  NTag,
-  NAlert,
-  NList,
-  NListItem,
-} from "naive-ui";
+import Field from "../ui/Field.vue";
+import Input from "../ui/Input.vue";
+import InputNumber from "../ui/InputNumber.vue";
+import Select from "../ui/Select.vue";
+import Button from "../ui/Button.vue";
+import Tag from "../ui/Tag.vue";
+import Alert from "../ui/Alert.vue";
 import { useGraphStore } from "../../stores/graph";
 import { useAssetsStore } from "../../stores/assets";
 import { filterByName } from "../../filters/registry";
@@ -38,19 +33,17 @@ const spec = computed(() =>
 const sinkFormat = computed<OutputFormat>(() => (node.value ? formatOf(node.value) : "mp4"));
 
 const formatOptions = computed(() => {
-  const group = (key: string, labelKey: string, formats: OutputFormat[]) => ({
-    type: "group" as const,
+  const group = (labelKey: string, formats: OutputFormat[]) => ({
     label: t(labelKey),
-    key,
-    children: formats.map((f) => ({
+    options: formats.map((f) => ({
       value: f,
       label: t(`inspector.format_${f}`),
     })),
   });
   return [
-    group("video", "inspector.formatGroupVideo", ["mp4", "mkv", "webm", "hevc", "prores"]),
-    group("audio", "inspector.formatGroupAudio", ["mp3", "m4a", "flac", "wav", "opus"]),
-    group("image", "inspector.formatGroupImage", ["gif", "apng"]),
+    group("inspector.formatGroupVideo", ["mp4", "mkv", "webm", "hevc", "prores"]),
+    group("inspector.formatGroupAudio", ["mp3", "m4a", "flac", "wav", "opus"]),
+    group("inspector.formatGroupImage", ["gif", "apng"]),
   ];
 });
 
@@ -160,30 +153,35 @@ const fmtSize = (n: number) =>
 
       <!-- asset -->
       <template v-if="node.kind === 'asset'">
-        <NAlert v-if="missingRef" type="warning" :title="t('node.missing')">
+        <Alert v-if="missingRef" type="warning" :title="t('node.missing')">
           <div class="remap">
-            <p>{{ t("assets.remapHint") }}</p>
-            <NList v-if="candidates.length" size="small" bordered>
-              <NListItem v-for="c in candidates" :key="c.id">
-                {{ c.filename }} ({{ fmtSize(c.size) }})
-                <template #suffix>
-                  <NButton size="tiny" @click="remapTo(c.id)">{{ t("assets.remap") }}</NButton>
-                </template>
-              </NListItem>
-            </NList>
+            <p class="m-0">{{ t("assets.remapHint") }}</p>
+            <div
+              v-if="candidates.length"
+              class="divide-line-soft border-line divide-y rounded-md border"
+            >
+              <div
+                v-for="c in candidates"
+                :key="c.id"
+                class="flex items-center justify-between gap-2 px-2.5 py-1.5"
+              >
+                <span class="min-w-0 truncate">{{ c.filename }} ({{ fmtSize(c.size) }})</span>
+                <Button size="tiny" @click="remapTo(c.id)">{{ t("assets.remap") }}</Button>
+              </div>
+            </div>
             <label class="file-pick">
-              <NButton size="small">{{ t("assets.upload") }}</NButton>
+              <Button tag="span" size="small">{{ t("assets.upload") }}</Button>
               <input type="file" hidden @change="onFilePicked" />
             </label>
           </div>
-        </NAlert>
+        </Alert>
         <template v-else>
-          <NForm v-if="assetMeta" size="small" label-placement="top">
-            <NFormItem :label="t('inspector.assetInfo')">
+          <div v-if="assetMeta" class="flex flex-col gap-3">
+            <Field :label="t('inspector.assetInfo')">
               <div class="asset-info">
-                <NTag size="small">{{
+                <Tag size="small">{{
                   t(`assets.type${assetMeta.kind[0].toUpperCase()}${assetMeta.kind.slice(1)}`)
-                }}</NTag>
+                }}</Tag>
                 <div>{{ assetMeta.filename }}</div>
                 <div>{{ fmtSize(assetMeta.size) }}</div>
                 <div v-if="assetMeta.duration">
@@ -193,121 +191,121 @@ const fmtSize = (n: number) =>
                   {{ t("assets.resolution") }}: {{ assetMeta.width }}×{{ assetMeta.height }}
                 </div>
               </div>
-            </NFormItem>
-          </NForm>
-          <NForm size="small" label-placement="top">
-            <NFormItem>
+            </Field>
+          </div>
+          <div class="flex flex-col gap-3">
+            <Field>
               <template #label
                 >-ss <span class="param-desc">{{ t("inspector.inputSSHint") }}</span></template
               >
-              <NInput
-                :value="node.inputSS ?? ''"
+              <Input
+                :model-value="node.inputSS ?? ''"
                 placeholder="10 或 00:00:10"
-                @update:value="(v: string) => store.updateNode(node!.id, { inputSS: v })"
+                @update:model-value="(v: string) => store.updateNode(node!.id, { inputSS: v })"
               />
-            </NFormItem>
-            <NFormItem>
+            </Field>
+            <Field>
               <template #label
                 >-t <span class="param-desc">{{ t("inspector.inputTHint") }}</span></template
               >
-              <NInput
-                :value="node.inputT ?? ''"
+              <Input
+                :model-value="node.inputT ?? ''"
                 placeholder="5"
-                @update:value="(v: string) => store.updateNode(node!.id, { inputT: v })"
+                @update:model-value="(v: string) => store.updateNode(node!.id, { inputT: v })"
               />
-            </NFormItem>
-            <NFormItem>
+            </Field>
+            <Field>
               <template #label
                 >-stream_loop
                 <span class="param-desc">{{ t("inspector.streamLoopHint") }}</span></template
               >
-              <NInputNumber
-                :value="node.streamLoop"
+              <InputNumber
+                :model-value="node.streamLoop ?? null"
                 :placeholder="t('inspector.unset')"
-                @update:value="
+                @update:model-value="
                   (v: number | null) => store.updateNode(node!.id, { streamLoop: v ?? undefined })
                 "
               />
-            </NFormItem>
-            <NFormItem>
+            </Field>
+            <Field>
               <template #label>{{ t("inspector.vStream") }}</template>
-              <NInputNumber
-                :value="node.vStream ?? 0"
+              <InputNumber
+                :model-value="node.vStream ?? 0"
                 :min="0"
-                @update:value="
+                @update:model-value="
                   (v: number | null) => store.updateNode(node!.id, { vStream: v ?? 0 })
                 "
               />
-            </NFormItem>
-            <NFormItem>
+            </Field>
+            <Field>
               <template #label>{{ t("inspector.aStream") }}</template>
-              <NInputNumber
-                :value="node.aStream ?? 0"
+              <InputNumber
+                :model-value="node.aStream ?? 0"
                 :min="0"
-                @update:value="
+                @update:model-value="
                   (v: number | null) => store.updateNode(node!.id, { aStream: v ?? 0 })
                 "
               />
-            </NFormItem>
-          </NForm>
+            </Field>
+          </div>
         </template>
       </template>
 
       <!-- source -->
-      <NForm v-else-if="node.kind === 'source'" size="small" label-placement="top">
-        <NFormItem :label="t('inspector.sourceFilter')">
-          <NInput
-            :value="node.sourceFilter ?? ''"
+      <div v-else-if="node.kind === 'source'" class="flex flex-col gap-3">
+        <Field :label="t('inspector.sourceFilter')">
+          <Input
+            :model-value="node.sourceFilter ?? ''"
             type="textarea"
-            :autosize="{ minRows: 2 }"
             placeholder="color=c=black:s=1280x720:d=5"
-            @update:value="(v: string) => store.updateNode(node!.id, { sourceFilter: v })"
+            @update:model-value="(v: string) => store.updateNode(node!.id, { sourceFilter: v })"
           />
-        </NFormItem>
-        <NFormItem :label="t('inspector.rawOutputs')">
+        </Field>
+        <Field :label="t('inspector.rawOutputs')">
           <div class="pads">
             <div v-for="(p, i) in node.sourceOutputs ?? []" :key="i" class="pads__row">
-              <NSelect
-                :value="p"
-                size="small"
+              <Select
+                :model-value="p"
                 :options="portOptions"
                 style="width: 110px"
-                @update:value="
-                  (v: PortType) => {
+                @update:model-value="
+                  (v: string) => {
                     const arr = [...(node!.sourceOutputs ?? [])];
-                    arr[i] = v;
+                    arr[i] = v as PortType;
                     store.updateNode(node!.id, { sourceOutputs: arr });
                   }
                 "
               />
-              <NButton
+              <Button
                 size="tiny"
-                quaternary
+                variant="ghost"
                 @click="
                   store.updateNode(node!.id, {
                     sourceOutputs: (node!.sourceOutputs ?? []).filter((_, j) => j !== i),
                   })
                 "
-                >✕</NButton
+                >✕</Button
               >
             </div>
-            <NButton
-              size="tiny"
-              dashed
-              @click="
-                store.updateNode(node!.id, {
-                  sourceOutputs: [...(node!.sourceOutputs ?? []), 'video'],
-                })
-              "
-              >+</NButton
-            >
+            <div>
+              <Button
+                size="tiny"
+                dashed
+                @click="
+                  store.updateNode(node!.id, {
+                    sourceOutputs: [...(node!.sourceOutputs ?? []), 'video'],
+                  })
+                "
+                >+</Button
+              >
+            </div>
           </div>
-        </NFormItem>
-      </NForm>
+        </Field>
+      </div>
 
       <!-- filter -->
-      <NForm v-else-if="node.kind === 'filter' && spec" size="small" label-placement="top">
-        <NFormItem v-for="p in spec.params" :key="p.key">
+      <div v-else-if="node.kind === 'filter' && spec" class="flex flex-col gap-3">
+        <Field v-for="p in spec.params" :key="p.key">
           <template #label>
             {{ p.key }}
             <span v-if="p.desc" class="param-desc">{{
@@ -319,176 +317,169 @@ const fmtSize = (n: number) =>
             :value="node.params?.[p.key]"
             @update="(v: unknown) => setParam(p.key, v)"
           />
-        </NFormItem>
-      </NForm>
+        </Field>
+      </div>
 
       <!-- raw -->
-      <NForm v-else-if="node.kind === 'raw'" size="small" label-placement="top">
-        <NFormItem :label="t('inspector.rawFilter')">
-          <NInput
-            :value="node.rawFilter ?? ''"
+      <div v-else-if="node.kind === 'raw'" class="flex flex-col gap-3">
+        <Field :label="t('inspector.rawFilter')">
+          <Input
+            :model-value="node.rawFilter ?? ''"
             type="textarea"
-            :autosize="{ minRows: 2 }"
             placeholder="hue=h=90:s=1.5"
-            @update:value="(v: string) => store.updateNode(node!.id, { rawFilter: v })"
+            @update:model-value="(v: string) => store.updateNode(node!.id, { rawFilter: v })"
           />
-        </NFormItem>
-        <NFormItem :label="t('inspector.rawInputs')">
+        </Field>
+        <Field :label="t('inspector.rawInputs')">
           <div class="pads">
             <div v-for="(p, i) in node.rawInputs ?? []" :key="i" class="pads__row">
-              <NSelect
-                :value="p"
-                size="small"
+              <Select
+                :model-value="p"
                 :options="portOptions"
                 style="width: 110px"
-                @update:value="
-                  (v: PortType) => {
+                @update:model-value="
+                  (v: string) => {
                     const arr = [...(node!.rawInputs ?? [])];
-                    arr[i] = v;
+                    arr[i] = v as PortType;
                     setRawPads('rawInputs', arr);
                   }
                 "
               />
-              <NButton
+              <Button
                 size="tiny"
-                quaternary
+                variant="ghost"
                 @click="
                   setRawPads(
                     'rawInputs',
                     (node!.rawInputs ?? []).filter((_, j) => j !== i),
                   )
                 "
-                >✕</NButton
+                >✕</Button
               >
             </div>
-            <NButton
-              size="tiny"
-              dashed
-              @click="setRawPads('rawInputs', [...(node!.rawInputs ?? []), 'video'])"
-              >+</NButton
-            >
+            <div>
+              <Button
+                size="tiny"
+                dashed
+                @click="setRawPads('rawInputs', [...(node!.rawInputs ?? []), 'video'])"
+                >+</Button
+              >
+            </div>
           </div>
-        </NFormItem>
-        <NFormItem :label="t('inspector.rawOutputs')">
+        </Field>
+        <Field :label="t('inspector.rawOutputs')">
           <div class="pads">
             <div v-for="(p, i) in node.rawOutputs ?? []" :key="i" class="pads__row">
-              <NSelect
-                :value="p"
-                size="small"
+              <Select
+                :model-value="p"
                 :options="portOptions"
                 style="width: 110px"
-                @update:value="
-                  (v: PortType) => {
+                @update:model-value="
+                  (v: string) => {
                     const arr = [...(node!.rawOutputs ?? [])];
-                    arr[i] = v;
+                    arr[i] = v as PortType;
                     setRawPads('rawOutputs', arr);
                   }
                 "
               />
-              <NButton
+              <Button
                 size="tiny"
-                quaternary
+                variant="ghost"
                 @click="
                   setRawPads(
                     'rawOutputs',
                     (node!.rawOutputs ?? []).filter((_, j) => j !== i),
                   )
                 "
-                >✕</NButton
+                >✕</Button
               >
             </div>
-            <NButton
-              size="tiny"
-              dashed
-              @click="setRawPads('rawOutputs', [...(node!.rawOutputs ?? []), 'video'])"
-              >+</NButton
-            >
+            <div>
+              <Button
+                size="tiny"
+                dashed
+                @click="setRawPads('rawOutputs', [...(node!.rawOutputs ?? []), 'video'])"
+                >+</Button
+              >
+            </div>
           </div>
-        </NFormItem>
-      </NForm>
+        </Field>
+      </div>
 
       <!-- stage / output -->
-      <NForm
-        v-else-if="node.kind === 'stage' || node.kind === 'output'"
-        size="small"
-        label-placement="top"
-      >
-        <NFormItem :label="t('inspector.filename')">
-          <NInput
-            :value="node.filename ?? ''"
+      <div v-else-if="node.kind === 'stage' || node.kind === 'output'" class="flex flex-col gap-3">
+        <Field :label="t('inspector.filename')">
+          <Input
+            :model-value="node.filename ?? ''"
             :placeholder="`${node.kind === 'stage' ? 'mid' : 'output'}.${FORMATS[sinkFormat].ext}`"
-            @update:value="(v: string) => store.updateNode(node!.id, { filename: v })"
+            @update:model-value="(v: string) => store.updateNode(node!.id, { filename: v })"
           />
-        </NFormItem>
-        <NFormItem :label="t('inspector.format')">
-          <NSelect
-            :value="sinkFormat"
+        </Field>
+        <Field :label="t('inspector.format')">
+          <Select
+            :model-value="sinkFormat"
             :options="formatOptions"
-            @update:value="(v: OutputFormat) => setFormat(v)"
+            @update:model-value="(v: string) => setFormat(v as OutputFormat)"
           />
-        </NFormItem>
-        <NFormItem v-if="presetOptions.length" :label="t('inspector.preset')">
-          <NSelect
-            :value="node.preset ?? ''"
+        </Field>
+        <Field v-if="presetOptions.length" :label="t('inspector.preset')">
+          <Select
+            :model-value="node.preset ?? ''"
             :options="presetOptions"
-            @update:value="
+            @update:model-value="
               (v: string) =>
                 store.updateNode(node!.id, {
                   preset: (v || undefined) as never,
                 })
             "
           />
-        </NFormItem>
-        <NFormItem v-if="sinkFormat === 'gif'" :label="t('inspector.gifFps')">
-          <NInputNumber
-            :value="node.gifFps ?? 15"
+        </Field>
+        <Field v-if="sinkFormat === 'gif'" :label="t('inspector.gifFps')">
+          <InputNumber
+            :model-value="node.gifFps ?? 15"
             :min="1"
             :max="60"
-            @update:value="
+            @update:model-value="
               (v: number | null) => store.updateNode(node!.id, { gifFps: v ?? undefined })
             "
           />
-        </NFormItem>
-        <NFormItem v-if="sinkFormat === 'gif'" :label="t('inspector.gifWidth')">
-          <NInputNumber
-            :value="node.gifWidth ?? 480"
+        </Field>
+        <Field v-if="sinkFormat === 'gif'" :label="t('inspector.gifWidth')">
+          <InputNumber
+            :model-value="node.gifWidth ?? 480"
             :min="16"
             :max="3840"
-            @update:value="
+            @update:model-value="
               (v: number | null) => store.updateNode(node!.id, { gifWidth: v ?? undefined })
             "
           />
-        </NFormItem>
-        <NFormItem :label="t('inspector.audioPads')">
-          <NInputNumber
-            :value="node.audioPads ?? 1"
+        </Field>
+        <Field :label="t('inspector.audioPads')">
+          <InputNumber
+            :model-value="node.audioPads ?? 1"
             :min="0"
             :max="8"
-            @update:value="(v: number | null) => store.updateNode(node!.id, { audioPads: v ?? 1 })"
+            @update:model-value="
+              (v: number | null) => store.updateNode(node!.id, { audioPads: v ?? 1 })
+            "
           />
-        </NFormItem>
-        <NFormItem>
+        </Field>
+        <Field>
           <template #label>
             {{ t("inspector.advancedArgs") }}
             <span class="param-desc">{{ t("inspector.advancedArgsHint") }}</span>
           </template>
-          <NInput
-            :value="node.advancedArgs ?? ''"
+          <Input
+            :model-value="node.advancedArgs ?? ''"
             placeholder="-movflags +faststart"
-            @update:value="(v: string) => store.updateNode(node!.id, { advancedArgs: v })"
+            @update:model-value="(v: string) => store.updateNode(node!.id, { advancedArgs: v })"
           />
-        </NFormItem>
-      </NForm>
+        </Field>
+      </div>
 
-      <NButton
-        class="inspector__delete"
-        size="small"
-        type="error"
-        secondary
-        @click="store.removeNode(node.id)"
-      >
+      <Button class="mt-3" size="small" danger @click="store.removeNode(node.id)">
         {{ t("inspector.delete") }}
-      </NButton>
+      </Button>
     </template>
   </div>
 </template>
@@ -511,25 +502,22 @@ const fmtSize = (n: number) =>
   font-size: 12px;
   color: #9ca3af;
 }
-.inspector__delete {
-  margin-top: 12px;
-}
 .param-desc {
   color: #6b7280;
-  font-size: 11px;
+  font-size: 12px;
   margin-left: 6px;
 }
 .asset-info {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .remap {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .file-pick {
   display: inline-block;

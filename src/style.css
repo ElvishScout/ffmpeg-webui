@@ -1,12 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-base: #101014; /* app background */
+  --color-panel: #18181d; /* header bar, minimap */
+  --color-card: #1c1c22; /* cards, list items, inputs */
+  --color-well: #0b0b0e; /* code/log wells */
+  --color-line: #33333d; /* default border */
+  --color-line-soft: #2c2c35; /* subtle border */
+  --color-fg: #e5e5ea; /* primary text */
+  --color-fg2: #c7c7d1; /* secondary text */
+  --color-mute: #9ca3af; /* muted text */
+  --color-faint: #6b7280; /* faint text */
+  --color-accent: #60a5fa;
+  --color-danger: #ef4444;
+  --color-warn: #f59e0b;
+  --color-ok: #4ade80;
+  --color-pink: #f472b6; /* audio port accent */
+}
+
 :root {
   color-scheme: dark;
-  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+  font-family: var(--font-sans);
 }
 
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
   user-select: none;
 }
 
@@ -48,11 +67,6 @@ body,
   margin: 0;
   height: 100%;
   overflow: hidden;
-}
-
-/* provider wrappers (n-config-provider / n-message-provider) must not break the height chain */
-#app > * {
-  height: 100%;
 }
 
 body {

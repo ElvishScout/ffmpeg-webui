@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { NButton, NSelect, NAlert, NTabs, NTabPane, useMessage } from "naive-ui";
+import Button from "./components/ui/Button.vue";
+import Select from "./components/ui/Select.vue";
+import Alert from "./components/ui/Alert.vue";
+import Tabs from "./components/ui/Tabs.vue";
+import TabPane from "./components/ui/TabPane.vue";
+import { toast } from "./components/ui/toast";
 import WorkflowBar from "./components/WorkflowBar.vue";
 import AssetPanel from "./components/AssetPanel.vue";
 import RunPanel from "./components/RunPanel.vue";
@@ -18,7 +23,6 @@ import { nodeDisplayName } from "./compiler/validate";
 const { t } = useI18n();
 const graphStore = useGraphStore();
 const runStore = useRunStore();
-const message = useMessage();
 
 const showCommand = ref(false);
 const rightTab = ref("inspector");
@@ -33,8 +37,8 @@ const localeOptions = [
   { value: "en", label: "English" },
 ];
 const currentLocale = computed({
-  get: () => i18n.global.locale.value as Locale,
-  set: (v: Locale) => setLocale(v),
+  get: () => i18n.global.locale.value as string,
+  set: (v: string) => setLocale(v as Locale),
 });
 
 const validationMessages = computed(() =>
@@ -52,7 +56,7 @@ async function onRun() {
     await runStore.run();
     rightTab.value = "run";
   } catch (e) {
-    message.error(e instanceof Error ? e.message : String(e));
+    toast.error(e instanceof Error ? e.message : String(e));
   }
 }
 </script>
@@ -63,39 +67,33 @@ async function onRun() {
       <span class="app__title">{{ t("app.title") }}</span>
       <WorkflowBar />
       <div class="app__spacer" />
-      <NSelect
-        v-model:value="runStore.backendId"
-        size="small"
+      <Select
+        v-model="runStore.backendId"
         style="width: 200px"
         :options="backendOptions"
         :title="t('app.backend')"
       />
-      <NButton size="small" :disabled="!graphStore.validation.ok" @click="showCommand = true">
+      <Button size="small" :disabled="!graphStore.validation.ok" @click="showCommand = true">
         {{ t("app.commandPreview") }}
-      </NButton>
-      <NButton
+      </Button>
+      <Button
         v-if="!runStore.running"
         size="small"
-        type="primary"
+        variant="primary"
         :disabled="!graphStore.validation.ok"
         @click="onRun"
       >
         {{ t("app.run") }}
-      </NButton>
-      <NButton v-else size="small" type="error" @click="runStore.cancel()">
+      </Button>
+      <Button v-else size="small" variant="primary" danger @click="runStore.cancel()">
         {{ t("app.cancel") }}
-      </NButton>
-      <NSelect
-        v-model:value="currentLocale"
-        size="small"
-        style="width: 100px"
-        :options="localeOptions"
-      />
+      </Button>
+      <Select v-model="currentLocale" style="width: 100px" :options="localeOptions" />
     </header>
 
-    <NAlert v-if="!sabSupported" type="error" class="app__banner">
+    <Alert v-if="!sabSupported" type="error" class="rounded-none">
       {{ t("errors.sabUnsupported") }}
-    </NAlert>
+    </Alert>
 
     <div v-if="validationMessages.length" class="app__errors">
       <span v-for="(m, i) in validationMessages" :key="i" class="app__error">⚠ {{ m }}</span>
@@ -103,34 +101,31 @@ async function onRun() {
 
     <main class="app__main">
       <aside class="app__left">
-        <NTabs
-          v-model:value="leftTab"
-          type="line"
-          size="small"
-          class="app__left-tabs"
-          pane-wrapper-style="flex:1;min-height:0"
-          pane-style="height:100%;overflow:hidden"
-        >
-          <NTabPane name="nodes" :tab="t('palette.title')">
+        <Tabs v-model="leftTab">
+          <TabPane name="nodes" :tab="t('palette.title')">
             <NodePalette />
-          </NTabPane>
-          <NTabPane name="assets" :tab="t('assets.title')">
+          </TabPane>
+          <TabPane name="assets" :tab="t('assets.title')">
             <AssetPanel />
-          </NTabPane>
-        </NTabs>
+          </TabPane>
+        </Tabs>
       </aside>
       <section class="app__canvas">
         <EditorCanvas />
       </section>
       <aside class="app__right">
-        <NTabs v-model:value="rightTab" type="line" size="small" class="app__tabs">
-          <NTabPane name="inspector" :tab="t('inspector.title')">
-            <InspectorPanel />
-          </NTabPane>
-          <NTabPane name="run" :tab="t('run.title')">
-            <RunPanel />
-          </NTabPane>
-        </NTabs>
+        <Tabs v-model="rightTab">
+          <TabPane name="inspector" :tab="t('inspector.title')">
+            <div class="px-2.5 pb-3">
+              <InspectorPanel />
+            </div>
+          </TabPane>
+          <TabPane name="run" :tab="t('run.title')">
+            <div class="px-2.5 pb-3">
+              <RunPanel />
+            </div>
+          </TabPane>
+        </Tabs>
       </aside>
     </main>
 
@@ -154,13 +149,10 @@ async function onRun() {
 }
 .app__title {
   font-weight: 800;
-  font-size: 14px;
+  font-size: 15px;
 }
 .app__spacer {
   flex: 1;
-}
-.app__banner {
-  border-radius: 0;
 }
 .app__errors {
   display: flex;
@@ -171,7 +163,7 @@ async function onRun() {
   border-bottom: 1px solid #33333d;
 }
 .app__error {
-  font-size: 11px;
+  font-size: 12px;
   color: #f59e0b;
 }
 .app__main {
@@ -182,24 +174,10 @@ async function onRun() {
 .app__left {
   width: 260px;
   flex: none;
-  padding: 6px 0 10px;
   border-right: 1px solid #33333d;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-.app__left-tabs {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.app__left-tabs :deep(.n-tabs-nav) {
-  padding: 0 10px;
-}
-.app__left-tabs :deep(.n-tabs-pane-wrapper) {
-  flex: 1;
-  min-height: 0;
 }
 .app__canvas {
   flex: 1;
@@ -209,10 +187,8 @@ async function onRun() {
   width: 320px;
   flex: none;
   border-left: 1px solid #33333d;
-  overflow-y: auto;
-  padding: 0 10px 10px;
-}
-.app__tabs {
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 </style>

@@ -1,12 +1,9 @@
 <script setup lang="ts">
-import { NConfigProvider, NMessageProvider, darkTheme } from "naive-ui";
 import AppShell from "./AppShell.vue";
+import ToastHost from "./components/ui/ToastHost.vue";
 </script>
 
 <template>
-  <NConfigProvider :theme="darkTheme">
-    <NMessageProvider>
-      <AppShell />
-    </NMessageProvider>
-  </NConfigProvider>
+  <AppShell />
+  <ToastHost />
 </template>

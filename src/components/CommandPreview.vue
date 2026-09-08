@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { NModal, NButton, NAlert, useMessage } from "naive-ui";
+import Modal from "./ui/Modal.vue";
+import Button from "./ui/Button.vue";
+import Alert from "./ui/Alert.vue";
+import { toast } from "./ui/toast";
 import { useGraphStore } from "../stores/graph";
 import { jobToCommands } from "../compiler/compile";
 
@@ -10,26 +13,24 @@ const emit = defineEmits<{ (e: "update:show", v: boolean): void }>();
 
 const { t } = useI18n();
 const store = useGraphStore();
-const message = useMessage();
 
 const result = computed(() => (props.show ? store.compile() : null));
 const commands = computed(() => (result.value?.job ? jobToCommands(result.value.job) : []));
 
 async function copyAll() {
   await navigator.clipboard.writeText(commands.value.join("\n\n"));
-  message.success(t("command.copied"));
+  toast.success(t("command.copied"));
 }
 </script>
 
 <template>
-  <NModal
+  <Modal
     :show="show"
-    preset="card"
     :title="t('command.title')"
     style="max-width: 760px"
     @update:show="(v: boolean) => emit('update:show', v)"
   >
-    <NAlert v-if="!commands.length" type="warning">{{ t("command.invalid") }}</NAlert>
+    <Alert v-if="!commands.length" type="warning">{{ t("command.invalid") }}</Alert>
     <div v-for="(cmd, i) in commands" :key="i" class="cmd">
       <div class="cmd__label">
         {{ t("command.segmentLabel", { n: i + 1 }) }}
@@ -37,9 +38,9 @@ async function copyAll() {
       <pre class="cmd__text">{{ cmd }}</pre>
     </div>
     <template v-if="commands.length" #footer>
-      <NButton size="small" @click="copyAll">{{ t("command.copy") }}</NButton>
+      <Button size="small" @click="copyAll">{{ t("command.copy") }}</Button>
     </template>
-  </NModal>
+  </Modal>
 </template>
 
 <style scoped>
@@ -47,7 +48,7 @@ async function copyAll() {
   margin-bottom: 12px;
 }
 .cmd__label {
-  font-size: 11px;
+  font-size: 12px;
   color: #9ca3af;
   margin-bottom: 4px;
 }
@@ -55,7 +56,7 @@ async function copyAll() {
   background: #0b0b0e;
   padding: 10px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 13px;
   white-space: pre-wrap;
   word-break: break-all;
   margin: 0;

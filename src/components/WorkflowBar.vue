@@ -1,23 +1,18 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import {
-  NButton,
-  NDropdown,
-  NInput,
-  NModal,
-  NList,
-  NListItem,
-  NPopconfirm,
-  useMessage,
-} from "naive-ui";
+import Button from "./ui/Button.vue";
+import Dropdown from "./ui/Dropdown.vue";
+import Input from "./ui/Input.vue";
+import Modal from "./ui/Modal.vue";
+import Popconfirm from "./ui/Popconfirm.vue";
+import { toast } from "./ui/toast";
 import { useWorkflowStore } from "../stores/workflow";
 import { useGraphStore } from "../stores/graph";
 
 const { t } = useI18n();
 const store = useWorkflowStore();
 const graphStore = useGraphStore();
-const message = useMessage();
 
 const showManager = ref(false);
 const showSaveAs = ref(false);
@@ -41,7 +36,7 @@ async function onMenu(key: string) {
       break;
     case "save":
       await store.save();
-      message.success(t("workflow.saved"));
+      toast.success(t("workflow.saved"));
       break;
     case "saveAs":
       saveAsName.value = graphStore.name || "";
@@ -76,9 +71,9 @@ async function onImportFile(e: Event) {
   if (!file) return;
   try {
     store.importFromText(await file.text());
-    message.success(t("workflow.imported"));
+    toast.success(t("workflow.imported"));
   } catch (err) {
-    message.error(
+    toast.error(
       t("workflow.importFailed", {
         msg: err instanceof Error ? err.message : String(err),
       }),
@@ -90,7 +85,7 @@ async function doSaveAs() {
   if (!saveAsName.value.trim()) return;
   await store.saveAs(saveAsName.value.trim());
   showSaveAs.value = false;
-  message.success(t("workflow.saved"));
+  toast.success(t("workflow.saved"));
 }
 
 const fmtTime = (ts: number) => new Date(ts).toLocaleString();
@@ -98,32 +93,22 @@ const fmtTime = (ts: number) => new Date(ts).toLocaleString();
 
 <template>
   <div class="wfbar">
-    <NInput
-      v-model:value="graphStore.name"
-      size="small"
-      :placeholder="t('workflow.untitled')"
-      style="width: 200px"
-    />
-    <NDropdown trigger="click" :options="menuOptions" @select="onMenu">
-      <NButton size="small">☰</NButton>
-    </NDropdown>
+    <Input v-model="graphStore.name" :placeholder="t('workflow.untitled')" style="width: 200px" />
+    <Dropdown :options="menuOptions" @select="onMenu">
+      <Button size="small">☰</Button>
+    </Dropdown>
     <input ref="fileInput" type="file" accept=".json" hidden @change="onImportFile" />
 
-    <NModal v-model:show="showSaveAs" preset="dialog" :title="t('workflow.saveAs')">
-      <NInput v-model:value="saveAsName" :placeholder="t('workflow.name')" />
-      <template #action>
-        <NButton size="small" type="primary" @click="doSaveAs">{{ t("workflow.save") }}</NButton>
+    <Modal v-model:show="showSaveAs" :title="t('workflow.saveAs')" style="max-width: 420px">
+      <Input v-model="saveAsName" :placeholder="t('workflow.name')" />
+      <template #footer>
+        <Button size="small" variant="primary" @click="doSaveAs">{{ t("workflow.save") }}</Button>
       </template>
-    </NModal>
+    </Modal>
 
-    <NModal
-      v-model:show="showManager"
-      preset="card"
-      :title="t('workflow.manage')"
-      style="max-width: 560px"
-    >
-      <NList bordered>
-        <NListItem v-for="w in store.saved" :key="w.id">
+    <Modal v-model:show="showManager" :title="t('workflow.manage')" style="max-width: 560px">
+      <div class="divide-line-soft border-line divide-y rounded-md border">
+        <div v-for="w in store.saved" :key="w.id" class="px-3 py-2">
           <div class="wfrow">
             <div>
               <div>{{ w.name }}</div>
@@ -132,25 +117,25 @@ const fmtTime = (ts: number) => new Date(ts).toLocaleString();
               </div>
             </div>
             <div class="wfrow__actions">
-              <NButton
+              <Button
                 size="tiny"
                 @click="
                   store.open(w.id);
                   showManager = false;
                 "
-                >{{ t("workflow.load") }}</NButton
+                >{{ t("workflow.load") }}</Button
               >
-              <NPopconfirm @positive-click="store.remove(w.id)">
+              <Popconfirm @positive="store.remove(w.id)">
                 <template #trigger>
-                  <NButton size="tiny" type="error" quaternary>{{ t("workflow.delete") }}</NButton>
+                  <Button size="tiny" variant="ghost" danger>{{ t("workflow.delete") }}</Button>
                 </template>
                 {{ t("workflow.deleteConfirm", { name: w.name }) }}
-              </NPopconfirm>
+              </Popconfirm>
             </div>
           </div>
-        </NListItem>
-      </NList>
-    </NModal>
+        </div>
+      </div>
+    </Modal>
   </div>
 </template>
 

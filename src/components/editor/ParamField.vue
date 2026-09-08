@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { NInputNumber, NInput, NSwitch, NSelect, NColorPicker } from "naive-ui";
+import InputNumber from "../ui/InputNumber.vue";
+import Input from "../ui/Input.vue";
+import Switch from "../ui/Switch.vue";
+import Select from "../ui/Select.vue";
 import type { ParamSpec } from "../../types/filter";
 
 const props = defineProps<{ spec: ParamSpec; value: unknown }>();
@@ -26,31 +29,25 @@ const selectOptions = computed(() =>
 </script>
 
 <template>
-  <NInputNumber
+  <InputNumber
     v-if="spec.type === 'number'"
-    v-model:value="num"
-    size="small"
+    v-model="num"
     :min="spec.min"
     :max="spec.max"
     :step="spec.step"
   />
-  <NSwitch v-else-if="spec.type === 'boolean'" v-model:value="bool" size="small" />
-  <NSelect
-    v-else-if="spec.type === 'select'"
-    v-model:value="str"
-    size="small"
-    :options="selectOptions"
-  />
+  <Switch v-else-if="spec.type === 'boolean'" v-model="bool" />
+  <Select v-else-if="spec.type === 'select'" v-model="str" :options="selectOptions" />
   <div v-else-if="spec.type === 'color'" class="color-field">
-    <NColorPicker
-      :value="str.startsWith('#') ? str : undefined"
-      size="small"
-      :show-alpha="false"
-      @update:value="(v: string) => emit('update', v)"
+    <input
+      type="color"
+      :value="str.startsWith('#') ? str : '#ffffff'"
+      class="border-line h-7 w-11 flex-none cursor-pointer rounded border bg-transparent p-0.5"
+      @input="emit('update', ($event.target as HTMLInputElement).value)"
     />
-    <NInput v-model:value="str" size="small" :placeholder="spec.placeholder ?? 'white'" />
+    <Input v-model="str" :placeholder="spec.placeholder ?? 'white'" />
   </div>
-  <NInput v-else v-model:value="str" size="small" :placeholder="spec.placeholder" />
+  <Input v-else v-model="str" :placeholder="spec.placeholder" />
 </template>
 
 <style scoped>
@@ -58,12 +55,5 @@ const selectOptions = computed(() =>
   display: flex;
   gap: 6px;
   align-items: center;
-}
-.color-field :deep(.n-color-picker) {
-  width: 90px;
-  flex: none;
-}
-.color-field :deep(.n-input) {
-  flex: 1;
 }
 </style>

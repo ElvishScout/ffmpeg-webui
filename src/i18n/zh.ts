@@ -1,4 +1,8 @@
 export default {
+  common: {
+    confirm: "确定",
+    cancel: "取消",
+  },
   app: {
     title: "ffmpeg-webui",
     run: "运行",

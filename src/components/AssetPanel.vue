@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { onMounted } from "vue";
 import { useI18n } from "vue-i18n";
-import { NButton, NTag, NEmpty, NPopconfirm, useMessage } from "naive-ui";
+import Button from "./ui/Button.vue";
+import Tag from "./ui/Tag.vue";
+import Empty from "./ui/Empty.vue";
+import Popconfirm from "./ui/Popconfirm.vue";
+import { toast } from "./ui/toast";
 import { useAssetsStore } from "../stores/assets";
 import { useGraphStore } from "../stores/graph";
 
 const { t } = useI18n();
 const store = useAssetsStore();
 const graphStore = useGraphStore();
-const message = useMessage();
 
 onMounted(() => void store.refresh());
 
@@ -17,7 +20,7 @@ async function onFiles(files: FileList | File[]) {
     try {
       await store.upload(f);
     } catch (e) {
-      message.error(String(e));
+      toast.error(String(e));
     }
   }
 }
@@ -57,18 +60,13 @@ const kindLabel = (kind: string) => t(`assets.type${kind[0].toUpperCase()}${kind
 <template>
   <div class="assets" @drop.prevent="onDrop" @dragover.prevent>
     <label class="assets__upload">
-      <NButton size="small" type="primary" dashed block tag="span">{{
+      <Button size="small" variant="primary" dashed block tag="span">{{
         t("assets.upload")
-      }}</NButton>
+      }}</Button>
       <input type="file" hidden multiple @change="onPick" />
     </label>
 
-    <NEmpty
-      v-if="!store.assets.length"
-      size="small"
-      :description="t('assets.empty')"
-      class="assets__empty"
-    />
+    <Empty v-if="!store.assets.length" :description="t('assets.empty')" class="mx-2.5 mt-8" />
 
     <div class="assets__list">
       <div
@@ -81,16 +79,16 @@ const kindLabel = (kind: string) => t(`assets.type${kind[0].toUpperCase()}${kind
         <div class="assets__info">
           <div class="assets__name" :title="a.filename">{{ a.filename }}</div>
           <div class="assets__meta">
-            <NTag size="tiny" :bordered="false">{{ kindLabel(a.kind) }}</NTag>
+            <Tag size="tiny">{{ kindLabel(a.kind) }}</Tag>
             <span>{{ fmtSize(a.size) }}</span>
             <span v-if="a.duration">{{ a.duration.toFixed(1) }}s</span>
             <span v-if="a.width">{{ a.width }}×{{ a.height }}</span>
           </div>
         </div>
         <div class="assets__actions">
-          <NButton
+          <Button
             size="tiny"
-            quaternary
+            variant="ghost"
             :title="t('assets.addToCanvas')"
             @click="
               graphStore.addAssetNode({
@@ -100,14 +98,14 @@ const kindLabel = (kind: string) => t(`assets.type${kind[0].toUpperCase()}${kind
                 mime: a.mime,
               })
             "
-            >＋</NButton
+            >＋</Button
           >
-          <NPopconfirm @positive-click="store.remove(a.id)">
+          <Popconfirm @positive="store.remove(a.id)">
             <template #trigger>
-              <NButton size="tiny" quaternary type="error">✕</NButton>
+              <Button size="tiny" variant="ghost" danger>✕</Button>
             </template>
             {{ t("assets.deleteConfirm", { name: a.filename }) }}
-          </NPopconfirm>
+          </Popconfirm>
         </div>
       </div>
     </div>
@@ -133,17 +131,10 @@ const kindLabel = (kind: string) => t(`assets.type${kind[0].toUpperCase()}${kind
   flex-direction: column;
   gap: 8px;
   min-height: 0;
-  padding-top: 4px;
 }
 .assets__upload {
   display: block;
   margin: 0 10px 4px;
-}
-.assets__upload :deep(.n-button) {
-  width: 100%;
-}
-.assets__empty {
-  margin: 32px 10px 0;
 }
 .assets__list {
   flex: 1;
@@ -173,7 +164,7 @@ const kindLabel = (kind: string) => t(`assets.type${kind[0].toUpperCase()}${kind
   flex: 1;
 }
 .assets__name {
-  font-size: 12px;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -182,7 +173,7 @@ const kindLabel = (kind: string) => t(`assets.type${kind[0].toUpperCase()}${kind
   display: flex;
   gap: 6px;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   color: #9ca3af;
   margin-top: 3px;
 }
@@ -192,7 +183,7 @@ const kindLabel = (kind: string) => t(`assets.type${kind[0].toUpperCase()}${kind
   flex: none;
 }
 .assets__quota {
-  font-size: 11px;
+  font-size: 12px;
   color: #6b7280;
   margin: 0 10px;
 }
