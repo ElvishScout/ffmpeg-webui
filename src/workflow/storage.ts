@@ -14,7 +14,9 @@ export async function saveWorkflow(graph: WorkflowGraph, id?: string): Promise<S
     id: id ?? newId(),
     name: graph.name,
     updatedAt: Date.now(),
-    graph,
+    // IDB structured clone rejects Vue reactive proxies — persist a plain
+    // JSON snapshot (same shape as the export format)
+    graph: JSON.parse(JSON.stringify(graph)),
   };
   await d.put("workflows", record);
   return record;
