@@ -17,7 +17,7 @@ export const useGraphStore = defineStore("graph", () => {
   const nodes = ref<WorkflowNode[]>([]);
   const edges = ref<WorkflowEdge[]>([]);
   const selectedId = ref<string | null>(null);
-  /** bumped on structural replacement (load/clear/add) so the canvas rebuilds */
+  /** bumped on structural replacement (load/clear/add/remove) so the canvas rebuilds */
   const revision = ref(0);
 
   const assetsStore = useAssetsStore();
@@ -129,6 +129,7 @@ export const useGraphStore = defineStore("graph", () => {
     nodes.value = nodes.value.filter((n) => n.id !== id);
     edges.value = edges.value.filter((e) => e.source !== id && e.target !== id);
     if (selectedId.value === id) selectedId.value = null;
+    revision.value++;
   }
 
   function removeEdge(id: string) {
