@@ -62,6 +62,14 @@ describe("serializeFilter", () => {
     });
     expect(serializeFilter(n)).toBe("drawtext=text=a\\:b\\,c");
   });
+  it("escapes # in hex colors (filtergraph comment char)", () => {
+    const n = node({
+      kind: "source",
+      filterName: "color",
+      params: { c: "#ff0000", s: "320x240", d: 1 },
+    });
+    expect(serializeFilter(n)).toBe("color=c=\\#ff0000:s=320x240:d=1");
+  });
   it("serializes split positionally", () => {
     const n = node({
       kind: "filter",

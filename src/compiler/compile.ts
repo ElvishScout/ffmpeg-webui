@@ -32,7 +32,8 @@ function escapeFilterValue(value: string): string {
     .replace(/,/g, "\\,")
     .replace(/;/g, "\\;")
     .replace(/\[/g, "\\[")
-    .replace(/\]/g, "\\]");
+    .replace(/\]/g, "\\]")
+    .replace(/#/g, "\\#"); // # starts a filtergraph comment (hex colors!)
 }
 
 /** Serialize one filter node to its filtergraph fragment. */
