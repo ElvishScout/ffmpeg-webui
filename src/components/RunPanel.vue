@@ -13,6 +13,8 @@ const { t } = useI18n();
 const store = useRunStore();
 const assetsStore = useAssetsStore();
 
+defineProps<{ view: "outputs" | "logs" }>();
+
 const statusLabel = computed(() => {
   switch (store.status) {
     case "loading":
@@ -100,8 +102,6 @@ function guessMime(ext: string): string {
 
 <template>
   <div class="run">
-    <div class="run__title">{{ t("run.title") }}</div>
-
     <div v-if="store.status !== 'idle'" class="run__status">
       <Tag :type="statusType" size="small">{{ statusLabel }}</Tag>
       <Progress
@@ -114,9 +114,9 @@ function guessMime(ext: string): string {
       <div v-if="store.error" class="run__error">{{ store.error }}</div>
     </div>
 
-    <template v-if="store.outputs.length">
-      <div class="run__section">{{ t("run.outputs") }}</div>
-      <div v-for="f in store.outputs" :key="f.nodeId + f.filename" class="run__output">
+    <template v-if="view === 'outputs'">
+      <template v-if="store.outputs.length">
+        <div v-for="f in store.outputs" :key="f.nodeId + f.filename" class="run__output">
         <div class="run__output-head">
           <Tag size="tiny" :type="f.kind === 'output' ? 'success' : 'info'">
             {{ f.kind === "output" ? t("run.outputFile") : t("run.stageFile") }}
@@ -139,14 +139,16 @@ function guessMime(ext: string): string {
           <audio v-else-if="isAudio(f)" :src="previewUrl(f)" controls />
           <video v-else :src="previewUrl(f)" controls />
         </div>
-      </div>
+        </div>
+      </template>
+      <div v-else class="run__empty">{{ t("run.outputsEmpty") }}</div>
     </template>
 
-    <template v-if="store.logs.length">
-      <div class="run__section">{{ t("run.logs") }}</div>
-      <div ref="logBox" class="run__logs max-h-60 overflow-y-auto">
+    <template v-else>
+      <div v-if="store.logs.length" ref="logBox" class="run__logs">
         <pre>{{ store.logs.join("\n") }}</pre>
       </div>
+      <div v-else class="run__empty">{{ t("run.logsEmpty") }}</div>
     </template>
   </div>
 </template>
@@ -156,10 +158,11 @@ function guessMime(ext: string): string {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  height: 100%;
 }
-.run__title {
-  font-weight: 700;
-  font-size: 13px;
+.run__empty {
+  color: #6b7280;
+  font-size: 12px;
 }
 .run__status {
   display: flex;
@@ -169,11 +172,6 @@ function guessMime(ext: string): string {
 .run__error {
   color: #ef4444;
   font-size: 13px;
-}
-.run__section {
-  font-size: 13px;
-  color: #9ca3af;
-  margin-top: 6px;
 }
 .run__output {
   background: #1c1c22;
@@ -209,6 +207,9 @@ function guessMime(ext: string): string {
   background: #0b0b0e;
   border-radius: 6px;
   padding: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 .run__logs pre {
   margin: 0;

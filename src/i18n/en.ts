@@ -118,7 +118,6 @@ export default {
     delete: "Delete node",
   },
   run: {
-    title: "Run",
     segment: "Segment {current}/{total}",
     loadingCore: "Loading ffmpeg core (slow on first run)…",
     done: "Done",
@@ -126,6 +125,8 @@ export default {
     cancelled: "Cancelled",
     logs: "Logs",
     outputs: "Outputs",
+    logsEmpty: "No logs yet",
+    outputsEmpty: "No outputs yet. Run the workflow to see them here.",
     download: "Download",
     preview: "Preview",
     saveToAssets: "Save to assets",

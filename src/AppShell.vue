@@ -54,7 +54,7 @@ const validationMessages = computed(() =>
 async function onRun() {
   try {
     await runStore.run();
-    rightTab.value = "run";
+    rightTab.value = "outputs";
   } catch (e) {
     toast.error(e instanceof Error ? e.message : String(e));
   }
@@ -120,9 +120,14 @@ async function onRun() {
               <InspectorPanel />
             </div>
           </TabPane>
-          <TabPane name="run" :tab="t('run.title')">
-            <div class="px-2.5 pb-3">
-              <RunPanel />
+          <TabPane name="outputs" :tab="t('run.outputs')">
+            <div class="h-full px-2.5 pb-3">
+              <RunPanel view="outputs" />
+            </div>
+          </TabPane>
+          <TabPane name="logs" :tab="t('run.logs')">
+            <div class="h-full px-2.5 pb-3">
+              <RunPanel view="logs" />
             </div>
           </TabPane>
         </Tabs>

@@ -118,7 +118,6 @@ export default {
     delete: "删除节点",
   },
   run: {
-    title: "执行",
     segment: "段 {current}/{total}",
     loadingCore: "正在加载 ffmpeg 核心（首次较慢）…",
     done: "完成",
@@ -126,6 +125,8 @@ export default {
     cancelled: "已取消",
     logs: "日志",
     outputs: "产物",
+    logsEmpty: "暂无日志",
+    outputsEmpty: "暂无产物，运行工作流后在此查看",
     download: "下载",
     preview: "预览",
     saveToAssets: "存入素材库",
