@@ -200,6 +200,11 @@ export async function spawnCoreWorker(onLog?: (m: string) => void): Promise<Core
     },
     terminate() {
       worker.terminate();
+      // settle any in-flight call, or the executor's await hangs forever and
+      // the run store never learns about the cancellation
+      rejecter?.(new CancelledError());
+      resolver = null;
+      rejecter = null;
       for (const u of blobURLs) URL.revokeObjectURL(u);
     },
   };
