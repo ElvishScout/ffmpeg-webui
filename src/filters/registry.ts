@@ -14,7 +14,7 @@ export const SPECIAL_NODES: SpecialNodeSpec[] = [
   },
   {
     kind: 'stage', name: 'stage',
-    desc: { zh: '切段,暂存到文件', en: 'Split & cache to file' },
+    desc: { zh: '切段，暂存到文件', en: 'Split & cache to file' },
   },
   {
     kind: 'output', name: 'output',
@@ -60,7 +60,7 @@ export const FILTER_REGISTRY: FilterSpec[] = [
   },
   {
     name: 'rotate', category: 'transform',
-    desc: { zh: '旋转(弧度)', en: 'Rotate (radians)' },
+    desc: { zh: '旋转（弧度）', en: 'Rotate (radians)' },
     inputs: [v], outputs: [v],
     params: [{ key: 'a', type: 'string', default: '0', placeholder: 'PI/2' }],
   },
@@ -92,13 +92,13 @@ export const FILTER_REGISTRY: FilterSpec[] = [
   },
   {
     name: 'setpts', category: 'transform',
-    desc: { zh: '视频变速(时间戳)', en: 'Change video speed (PTS)' },
+    desc: { zh: '视频变速（时间戳）', en: 'Change video speed (PTS)' },
     inputs: [v], outputs: [v],
     params: [{ key: 'expr', type: 'string', default: '0.5*PTS', placeholder: '0.5*PTS = 2x 快' }],
   },
   {
     name: 'trim', category: 'transform',
-    desc: { zh: '视频截取(秒)', en: 'Trim video (seconds)' },
+    desc: { zh: '视频截取（秒）', en: 'Trim video (seconds)' },
     inputs: [v], outputs: [v],
     params: [
       { key: 'start', type: 'number', default: 0, min: 0, step: 0.1 },
@@ -196,11 +196,11 @@ export const FILTER_REGISTRY: FilterSpec[] = [
   },
   {
     name: 'concat', category: 'overlay',
-    desc: { zh: '拼接(顺序相连)', en: 'Concat' },
+    desc: { zh: '拼接（顺序相连）', en: 'Concat' },
     inputs: [v, v], outputs: [v],
     inputsFrom: 'n',
     params: [
-      { key: 'n', type: 'number', default: 2, min: 1, max: 16, desc: { zh: '片段数(=输入口数)', en: 'segment count (= input pads)' } },
+      { key: 'n', type: 'number', default: 2, min: 1, max: 16, desc: { zh: '片段数（=输入口数）', en: 'segment count (= input pads)' } },
       { key: 'v', type: 'number', default: 1, min: 0, max: 1 },
       { key: 'a', type: 'number', default: 0, min: 0, max: 1 },
     ],
@@ -227,7 +227,7 @@ export const FILTER_REGISTRY: FilterSpec[] = [
   // ---------- text ----------
   {
     name: 'drawtext', category: 'text',
-    desc: { zh: '叠加文字(需字体)', en: 'Draw text' },
+    desc: { zh: '叠加文字（需字体）', en: 'Draw text' },
     inputs: [v], outputs: [v],
     params: [
       { key: 'text', type: 'string', default: '', placeholder: 'Hello' },
@@ -253,7 +253,7 @@ export const FILTER_REGISTRY: FilterSpec[] = [
   },
   {
     name: 'atrim', category: 'audio',
-    desc: { zh: '音频截取(秒)', en: 'Trim audio (seconds)' },
+    desc: { zh: '音频截取（秒）', en: 'Trim audio (seconds)' },
     inputs: [a], outputs: [a],
     params: [
       { key: 'start', type: 'number', default: 0, min: 0, step: 0.1 },
@@ -272,8 +272,8 @@ export const FILTER_REGISTRY: FilterSpec[] = [
     inputs: [a], outputs: [a],
     params: [
       { key: 't', type: 'select', default: 'in', options: [{ value: 'in', label: { zh: '淡入', en: 'in' } }, { value: 'out', label: { zh: '淡出', en: 'out' } }] },
-      { key: 'st', type: 'number', default: 0, min: 0, step: 0.1, desc: { zh: '开始时间(秒)', en: 'start time (s)' } },
-      { key: 'd', type: 'number', default: 1, min: 0, step: 0.1, desc: { zh: '时长(秒)', en: 'duration (s)' } },
+      { key: 'st', type: 'number', default: 0, min: 0, step: 0.1, desc: { zh: '开始时间（秒）', en: 'start time (s)' } },
+      { key: 'd', type: 'number', default: 1, min: 0, step: 0.1, desc: { zh: '时长（秒）', en: 'duration (s)' } },
     ],
   },
   { name: 'loudnorm', category: 'audio', desc: { zh: '响度标准化', en: 'Loudness normalization' }, inputs: [a], outputs: [a], params: [] },
@@ -291,7 +291,7 @@ export const FILTER_REGISTRY: FilterSpec[] = [
     name: 'acrossfade', category: 'audio',
     desc: { zh: '交叉淡入淡出', en: 'Crossfade' },
     inputs: [a, a], outputs: [a],
-    params: [{ key: 'd', type: 'number', default: 2, min: 0, step: 0.1, desc: { zh: '时长(秒)', en: 'duration (s)' } }],
+    params: [{ key: 'd', type: 'number', default: 2, min: 0, step: 0.1, desc: { zh: '时长（秒）', en: 'duration (s)' } }],
   },
   {
     name: 'aecho', category: 'audio',
@@ -320,7 +320,7 @@ export const FILTER_REGISTRY: FilterSpec[] = [
   // ---------- io / utility ----------
   {
     name: 'loop', category: 'misc',
-    desc: { zh: '循环(图片转视频常用)', en: 'Loop' },
+    desc: { zh: '循环（图片转视频常用）', en: 'Loop' },
     inputs: [v], outputs: [v],
     params: [
       { key: 'loop', type: 'number', default: -1, desc: { zh: '-1 = 无限', en: '-1 = forever' } },
@@ -338,13 +338,13 @@ export const FILTER_REGISTRY: FilterSpec[] = [
   },
   {
     name: 'reverse', category: 'misc',
-    desc: { zh: '倒放(内存占用大)', en: 'Reverse (memory hungry)' },
+    desc: { zh: '倒放（内存占用大）', en: 'Reverse (memory hungry)' },
     inputs: [v], outputs: [v], params: [],
   },
   { name: 'areverse', category: 'misc', desc: { zh: '音频倒放', en: 'Reverse audio' }, inputs: [a], outputs: [a], params: [] },
   {
     name: 'split', category: 'misc',
-    desc: { zh: '一分多(同源多用)', en: 'Split 1 -> n' },
+    desc: { zh: '一分多（同源多用）', en: 'Split 1 -> n' },
     inputs: [v], outputs: [v, v],
     outputsFrom: 'n', positionalCount: true,
     params: [{ key: 'n', type: 'number', default: 2, min: 2, max: 8 }],
