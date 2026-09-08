@@ -149,6 +149,12 @@ body {
 .wf-node__header.kind-output {
   background: #4a1730;
 }
+.wf-node__header.kind-upload {
+  background: #16405e;
+}
+.wf-node__header.kind-glob {
+  background: #47521f;
+}
 .wf-node__body {
   padding: 8px 10px;
   color: #c7c7d1;
