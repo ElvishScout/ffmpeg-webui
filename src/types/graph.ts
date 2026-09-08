@@ -14,6 +14,17 @@ export type NodeKind = 'asset' | 'source' | 'filter' | 'raw' | 'stage' | 'output
 
 export type EncodePreset = 'lossless' | 'high' | 'fast' | 'copy'
 
+/** Output container/codec family. Orthogonal to EncodePreset (encode strategy). */
+export type OutputFormat =
+  // video containers (preset applies)
+  | 'mp4' | 'mkv' | 'webm'
+  // video containers with a fixed codec (preset N/A)
+  | 'hevc' | 'prores'
+  // audio only
+  | 'mp3' | 'm4a' | 'flac' | 'wav' | 'opus'
+  // animated image (video only)
+  | 'gif' | 'apng'
+
 export interface WorkflowNode {
   id: string
   kind: NodeKind
@@ -43,11 +54,17 @@ export interface WorkflowNode {
   rawOutputs?: PortType[]
   /** kind = stage | output */
   preset?: EncodePreset
+  /** kind = stage | output: container/codec family; undefined = derived from preset (legacy graphs) */
+  format?: OutputFormat
   filename?: string
   /** number of audio input pads (default 1, 0 = video only) */
   audioPads?: number
   /** extra raw ffmpeg output args, e.g. "-movflags +faststart" */
   advancedArgs?: string
+  /** kind = stage | output, format = gif: frames per second (default 15) */
+  gifFps?: number
+  /** kind = stage | output, format = gif: output width in px, height auto (default 480) */
+  gifWidth?: number
 }
 
 export interface WorkflowEdge {

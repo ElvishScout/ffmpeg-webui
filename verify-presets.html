@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>preset encoder verification</title></head>
+<body>
+<pre id="out">verify ready</pre>
+<script type="module">
+// Dev-only verification: runs a real tiny encode for every output format
+// against the wasm core, mirroring how the app invokes ffmpeg (file inputs,
+// core-mt workaround args baked in — see patchArgsForCoreMt in wasm.ts).
+// NOTE: do NOT use two `-f lavfi -i` inputs here — opening a second lavfi
+// input deadlocks this core regardless of encoder (harness artifact).
+// Driver: scripts/verify-presets.mjs collects the console output.
+import { spawnCoreWorker } from '/src/executor/wasm.ts'
+
+const out = document.getElementById('out')
+const log = (...a) => {
+  const line = a.map(String).join(' ')
+  out.textContent += '\n' + line
+  console.log('[verify]', line)
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// core-mt workaround args (what patchArgsForCoreMt injects):
+// -filter_*_threads 1 for every filtergraph, -threads 1 for libvpx/prores_ks,
+// -x265-params pools=1 for libx265.
+const FT = ['-filter_threads', '1', '-filter_complex_threads', '1']
+
+const V = ['-i', 'in.mp4']        // video (and maybe audio)
+const VA = ['-i', 'in.mp4', '-i', 'tone.wav'] // video + separate audio file
+const A = ['-i', 'tone.wav']
+
+const variants = [
+  ['webm', [...VA, '-map', '0:v', '-map', '1:a', '-c:v', 'libvpx', '-crf', '10', '-b:v', '1M', '-pix_fmt', 'yuv420p', '-c:a', 'libopus', '-b:a', '128k', '-shortest', ...FT, '-threads', '1', 'out.webm']],
+  ['hevc', [...VA, '-map', '0:v', '-map', '1:a', '-c:v', 'libx265', '-crf', '23', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-tag:v', 'hvc1', '-c:a', 'aac', '-b:a', '192k', '-shortest', ...FT, '-x265-params', 'pools=1', 'out.mp4']],
+  ['prores', [...VA, '-map', '0:v', '-map', '1:a', '-c:v', 'prores_ks', '-profile:v', '3', '-c:a', 'pcm_s16le', '-shortest', ...FT, '-threads', '1', 'out.mov']],
+  ['mp3', [...A, '-c:a', 'libmp3lame', '-q:a', '2', ...FT, 'out.mp3']],
+  ['m4a', [...A, '-c:a', 'aac', '-b:a', '192k', ...FT, 'out.m4a']],
+  ['flac', [...A, '-c:a', 'flac', ...FT, 'out.flac']],
+  ['wav', [...A, '-c:a', 'pcm_s16le', ...FT, 'out.wav']],
+  ['opus', [...A, '-c:a', 'libopus', '-b:a', '128k', ...FT, 'out.opus']],
+  ['gif', [...V, '-filter_complex', '[0:v]fps=15,scale=480:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse[g]', '-map', '[g]', ...FT, 'out.gif']],
+  ['apng', [...V, '-c:v', 'apng', ...FT, 'out.apng']],
+]
+
+async function runVariant(worker, name, args, timeoutMs = 180000) {
+  log(`=== ${name} ===`)
+  try {
+    worker.setHandlers({ onLog: (m) => { if (/error|invalid|unknown/i.test(m)) log('  ffmpeg:', m.trim().slice(0, 200)) } })
+    const t0 = performance.now()
+    const result = await Promise.race([
+      worker.call('exec', { args }),
+      sleep(timeoutMs).then(() => ({ timeout: true })),
+    ])
+    const dt = ((performance.now() - t0) / 1000).toFixed(1)
+    if (result.timeout) {
+      log(`RESULT ${name}: HUNG after ${dt}s`)
+      return false
+    }
+    if (result.code !== 0) {
+      log(`RESULT ${name}: exit=${result.code} in ${dt}s`)
+      return false
+    }
+    const r = await worker.call('read', { path: args[args.length - 1] })
+    log(`RESULT ${name}: OK in ${dt}s, ${r.data.length} bytes`)
+    return true
+  } finally {
+    worker.setHandlers({})
+  }
+}
+
+async function main() {
+  log('loading test asset…')
+  const inputBytes = new Uint8Array(
+    await fetch('/@fs/D:/Projects/ffmpeg-webui/repro/in.mp4').then((r) => r.arrayBuffer()),
+  )
+  log(`asset: ${inputBytes.length} bytes`)
+
+  const summary = []
+  for (const [name, args] of variants) {
+    // fresh worker per variant: a hung exec leaves the core unusable
+    log(`loading core for ${name}…`)
+    const worker = await spawnCoreWorker()
+    log(`core ready for ${name}`)
+    try {
+      const v = inputBytes.slice()
+      await worker.call('write', { path: 'in.mp4', data: v }, [v.buffer])
+      // single lavfi input works fine; materialize the tone as a file.
+      // FT flags are needed here too: sine->wav builds an implicit resample
+      // filtergraph, which deadlocks core-mt without single-threaded filters.
+      await Promise.race([
+        worker.call('exec', { args: ['-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', ...FT, 'tone.wav'] }),
+        sleep(30000).then(() => { throw new Error('tone.wav exec hung') }),
+      ])
+      summary.push(`${(await runVariant(worker, name, args)) ? 'PASS' : 'FAIL'} ${name}`)
+    } finally {
+      worker.terminate()
+    }
+  }
+  log('=== SUMMARY ===')
+  for (const s of summary) log(s)
+  log('VERIFY DONE')
+}
+
+main().catch((e) => { log('FATAL', e.message); console.log('[verify] VERIFY DONE') })
+</script>
+</body>
+</html>

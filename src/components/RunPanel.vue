@@ -55,9 +55,9 @@ function download(f: ProducedFile) {
   a.click()
 }
 
-const isPlayable = (f: ProducedFile) => /\.(mp4|webm|mkv|mp3|aac|wav|ogg|flac|png|jpe?g|gif|webp)$/i.test(f.filename)
-const isImage = (f: ProducedFile) => /\.(png|jpe?g|gif|webp)$/i.test(f.filename)
-const isAudio = (f: ProducedFile) => /\.(mp3|aac|wav|ogg|flac)$/i.test(f.filename)
+const isPlayable = (f: ProducedFile) => /\.(mp4|webm|mkv|mov|mp3|m4a|aac|wav|ogg|opus|flac|png|jpe?g|gif|apng|webp)$/i.test(f.filename)
+const isImage = (f: ProducedFile) => /\.(png|jpe?g|gif|apng|webp)$/i.test(f.filename)
+const isAudio = (f: ProducedFile) => /\.(mp3|m4a|aac|wav|ogg|opus|flac)$/i.test(f.filename)
 
 async function saveToAssets(f: ProducedFile) {
   const ext = f.filename.match(/\.([a-z0-9]+)$/i)?.[1] ?? ''
@@ -70,8 +70,11 @@ async function saveToAssets(f: ProducedFile) {
 }
 function guessMime(ext: string): string {
   if (['mp4', 'mkv', 'webm', 'mov', 'avi'].includes(ext)) return `video/${ext === 'mkv' ? 'x-matroska' : ext}`
-  if (['mp3', 'aac', 'wav', 'ogg', 'flac'].includes(ext)) return `audio/${ext === 'mp3' ? 'mpeg' : ext}`
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return `image/${ext === 'jpg' ? 'jpeg' : ext}`
+  if (ext === 'mp3') return 'audio/mpeg'
+  if (ext === 'm4a') return 'audio/mp4'
+  if (ext === 'opus') return 'audio/ogg'
+  if (['aac', 'wav', 'ogg', 'flac'].includes(ext)) return `audio/${ext}`
+  if (['png', 'jpg', 'jpeg', 'gif', 'apng', 'webp'].includes(ext)) return `image/${ext === 'jpg' ? 'jpeg' : ext}`
   return 'application/octet-stream'
 }
 </script>

@@ -1,6 +1,7 @@
 import type { WorkflowGraph, WorkflowNode, WorkflowEdge } from '../types/graph'
 import type { PortSpec, PortType } from '../types/filter'
 import { filterByName } from '../filters/registry'
+import { FORMATS, formatOf, formatKind } from './formats'
 
 /** Input pads of a node, in handle order (handle id = `in-{index}`). */
 export function inputPads(node: WorkflowNode): PortSpec[] {
@@ -78,6 +79,9 @@ export interface ValidationError {
     | 'filterUnknown'
     | 'rawEmpty'
     | 'sourceEmpty'
+    | 'presetAudioOnly'
+    | 'presetVideoOnly'
+    | 'presetUnsupported'
   nodeId?: string
   /** display name for messages */
   nodeName?: string
@@ -247,6 +251,24 @@ export function validateGraph(
       case 'output': {
         if (into.length === 0) errors.push({ code: 'outputNoInput', nodeId: node.id, nodeName: name })
         if (!node.filename?.trim()) errors.push({ code: 'filenameRequired', nodeId: node.id, nodeName: name })
+        // audio formats reject a connected video pad; animated-image formats reject audio pads
+        const kind = formatKind(node)
+        if (kind === 'audio' && connectedIn.has('in-0')) {
+          errors.push({ code: 'presetAudioOnly', nodeId: node.id, nodeName: name })
+        }
+        if (kind === 'video') {
+          const pads = inputPads(node)
+          for (let i = 1; i < pads.length; i++) {
+            if (connectedIn.has(`in-${i}`)) {
+              errors.push({ code: 'presetVideoOnly', nodeId: node.id, nodeName: name })
+              break
+            }
+          }
+        }
+        // the encode strategy must be one the format supports
+        if (node.preset && !FORMATS[formatOf(node)].presets.includes(node.preset)) {
+          errors.push({ code: 'presetUnsupported', nodeId: node.id, nodeName: name })
+        }
         break
       }
     }

@@ -46,7 +46,7 @@ function add(item: PaletteItem) {
   } else if (item.special === 'source') {
     store.addNode({ kind: 'source', sourceFilter: '', sourceOutputs: ['video'] })
   } else {
-    store.addNode({ kind: item.special, preset: 'high', filename: '' })
+    store.addSinkNode(item.special)
   }
 }
 

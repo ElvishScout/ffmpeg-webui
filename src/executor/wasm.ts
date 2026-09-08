@@ -99,13 +99,25 @@ function parseTimeSeconds(line: string): number | null {
  * one inserted for every re-encode — freezes at encoder init. Forcing
  * single-threaded filtergraphs avoids it; decode and x264 stay multithreaded.
  * Repro matrix: repro.html + scripts/repro-hang.mjs.
- * Native ffmpeg doesn't need this, so it lives here, not in the compiled Job
- * (command preview stays canonical).
+ *
+ * More encoder-specific core-mt workarounds, verified by
+ * probe-encoder.html + scripts/probe-encoder.mjs:
+ * - prores_ks / libvpx (VP8): hang with the default 18-thread pool -> -threads 1
+ * - libx265: its internal pool ignores -threads; needs -x265-params pools=1
+ * Native ffmpeg doesn't need any of this, so it lives here, not in the
+ * compiled Job (command preview stays canonical).
  */
 function patchArgsForCoreMt(args: string[]): string[] {
   const patch: string[] = []
   if (!args.includes('-filter_threads')) patch.push('-filter_threads', '1')
   if (!args.includes('-filter_complex_threads')) patch.push('-filter_complex_threads', '1')
+  const codecs = new Set(
+    args.flatMap((a, i) => ((a === '-c:v' || a === '-c:a') && i + 1 < args.length ? [args[i + 1]] : [])),
+  )
+  if (!args.includes('-threads') && (codecs.has('prores_ks') || codecs.has('libvpx') || codecs.has('libvpx-vp9'))) {
+    patch.push('-threads', '1')
+  }
+  if (codecs.has('libx265') && !args.includes('-x265-params')) patch.push('-x265-params', 'pools=1')
   if (!patch.length) return args
   const out = [...args]
   out.splice(out.length - 1, 0, ...patch) // before the output filename

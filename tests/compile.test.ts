@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { compileGraph, jobToCommands, serializeFilter } from './compile'
-import { validateGraph, portsCompatible } from './validate'
-import type { WorkflowGraph, WorkflowNode, WorkflowEdge, AssetRef } from '../types/graph'
+import { compileGraph, jobToCommands, serializeFilter } from '../src/compiler/compile'
+import { validateGraph, portsCompatible } from '../src/compiler/validate'
+import type { WorkflowGraph, WorkflowNode, WorkflowEdge, AssetRef } from '../src/types/graph'
 
 const asset = (id: string, filename = `${id}.mp4`): AssetRef => ({
   id, filename, size: 1000, mime: 'video/mp4',
@@ -283,5 +283,199 @@ describe('compileGraph', () => {
     const { job } = compileGraph(g)
     const [cmd] = jobToCommands(job!)
     expect(cmd).toMatch(/^ffmpeg -y -i in0\.mp4 -filter_complex '.+' .+ out\.mp4$/)
+  })
+})
+
+describe('output formats', () => {
+  const lastArg = (job: NonNullable<ReturnType<typeof compileGraph>['job']>, seg = 0) =>
+    job.segments[seg].args[job.segments[seg].args.length - 1]
+
+  it('webm defaults to vp8 + opus, .webm ext', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const o = node({ kind: 'output', filename: 'out', format: 'webm' })
+    const g = graph([a, o], [
+      edge(a.id, 'out-0', o.id, 'in-0'),
+      edge(a.id, 'out-0', o.id, 'in-1'),
+    ])
+    const { job, errors } = compileGraph(g)
+    expect(errors).toEqual([])
+    const args = job!.segments[0].args.join(' ')
+    expect(args).toContain('-c:v libvpx -crf 10 -b:v 1M')
+    expect(args).toContain('-c:a libopus -b:a 128k')
+    expect(lastArg(job!)).toBe('out.webm')
+  })
+
+  it('copy strategy remuxes on any container (webm, m4a)', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const w = node({ kind: 'output', filename: 'v', format: 'webm', preset: 'copy' })
+    const m = node({ kind: 'output', filename: 'a', format: 'm4a', preset: 'copy' })
+    const g = graph([a, w, m], [
+      edge(a.id, 'out-0', w.id, 'in-0'),
+      edge(a.id, 'out-0', w.id, 'in-1'),
+      edge(a.id, 'out-0', m.id, 'in-1'),
+    ])
+    const { job, errors } = compileGraph(g)
+    expect(errors).toEqual([])
+    const args = job!.segments[0].args.join(' ')
+    expect(args).toContain('-c:v copy')
+    expect(args).toContain('-c:a copy')
+    expect(args).toContain('v.webm')
+    expect(args).toContain('a.m4a')
+  })
+
+  it('rejects a strategy the format does not support (lossless on webm)', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const o = node({ kind: 'output', filename: 'out', format: 'webm', preset: 'lossless' })
+    const g = graph([a, o], [edge(a.id, 'out-0', o.id, 'in-0')])
+    const { errors } = compileGraph(g)
+    expect(errors.some((e) => e.code === 'presetUnsupported')).toBe(true)
+  })
+
+  it('hevc: libx265 with hvc1 tag, mp4 ext', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const o = node({ kind: 'output', filename: 'out', format: 'hevc' })
+    const g = graph([a, o], [edge(a.id, 'out-0', o.id, 'in-0')])
+    const { job, errors } = compileGraph(g)
+    expect(errors).toEqual([])
+    const args = job!.segments[0].args.join(' ')
+    expect(args).toContain('-c:v libx265')
+    expect(args).toContain('-tag:v hvc1')
+    expect(lastArg(job!)).toBe('out.mp4')
+  })
+
+  it('prores: prores_ks + pcm in mov', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const o = node({ kind: 'output', filename: 'out', format: 'prores' })
+    const g = graph([a, o], [
+      edge(a.id, 'out-0', o.id, 'in-0'),
+      edge(a.id, 'out-0', o.id, 'in-1'),
+    ])
+    const { job, errors } = compileGraph(g)
+    expect(errors).toEqual([])
+    const args = job!.segments[0].args.join(' ')
+    expect(args).toContain('-c:v prores_ks -profile:v 3')
+    expect(args).toContain('-c:a pcm_s16le')
+    expect(lastArg(job!)).toBe('out.mov')
+  })
+
+  it('mp3: maps only audio, no video codec args', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const o = node({ kind: 'output', filename: 'out', format: 'mp3' })
+    const g = graph([a, o], [edge(a.id, 'out-0', o.id, 'in-1')])
+    const { job, errors } = compileGraph(g)
+    expect(errors).toEqual([])
+    const args = job!.segments[0].args.join(' ')
+    expect(args).toContain('-map 0:a')
+    expect(args).not.toContain('-c:v')
+    expect(args).toContain('-c:a libmp3lame -q:a 2')
+    expect(lastArg(job!)).toBe('out.mp3')
+  })
+
+  it('flac: lossless audio ext', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const o = node({ kind: 'output', filename: 'out', format: 'flac' })
+    const g = graph([a, o], [edge(a.id, 'out-0', o.id, 'in-1')])
+    const { job, errors } = compileGraph(g)
+    expect(errors).toEqual([])
+    expect(job!.segments[0].args.join(' ')).toContain('-c:a flac')
+    expect(lastArg(job!)).toBe('out.flac')
+  })
+
+  it('audio format rejects a connected video pad', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const o = node({ kind: 'output', filename: 'out', format: 'mp3' })
+    const g = graph([a, o], [edge(a.id, 'out-0', o.id, 'in-0')])
+    const { errors } = compileGraph(g)
+    expect(errors.some((e) => e.code === 'presetAudioOnly')).toBe(true)
+  })
+
+  it('gif: injects palette chain and maps its output', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const o = node({ kind: 'output', filename: 'out', format: 'gif' })
+    const g = graph([a, o], [edge(a.id, 'out-0', o.id, 'in-0')])
+    const { job, errors } = compileGraph(g)
+    expect(errors).toEqual([])
+    const args = job!.segments[0].args
+    const fc = args[args.indexOf('-filter_complex') + 1]
+    expect(fc).toMatch(
+      /^\[0:v\]fps=15,scale=480:-1:flags=lanczos,split\[n\d+\]\[n\d+\];\[n\d+\]palettegen\[n\d+\];\[n\d+\]\[n\d+\]paletteuse\[n(\d+)\]$/,
+    )
+    const out = fc.match(/paletteuse\[(n\d+)\]$/)![1]
+    expect(args.join(' ')).toContain(`-map [${out}]`)
+    expect(args[args.length - 1]).toBe('out.gif')
+  })
+
+  it('gif: honors gifFps/gifWidth and works downstream of a filter', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const f = node({ kind: 'filter', filterName: 'hflip' })
+    const o = node({ kind: 'output', filename: 'anim', format: 'gif', gifFps: 10, gifWidth: 320 })
+    const g = graph([a, f, o], [
+      edge(a.id, 'out-0', f.id, 'in-0'),
+      edge(f.id, 'out-0', o.id, 'in-0'),
+    ])
+    const { job, errors } = compileGraph(g)
+    expect(errors).toEqual([])
+    const args = job!.segments[0].args
+    const fc = args[args.indexOf('-filter_complex') + 1]
+    expect(fc).toContain('fps=10,scale=320:-1:flags=lanczos,split')
+    // palette chain consumes the hflip label, not a raw input
+    expect(fc).toMatch(/\[n\d+\]fps=10,scale=320/)
+  })
+
+  it('gif format rejects a connected audio pad', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const o = node({ kind: 'output', filename: 'out', format: 'gif' })
+    const g = graph([a, o], [
+      edge(a.id, 'out-0', o.id, 'in-0'),
+      edge(a.id, 'out-0', o.id, 'in-1'),
+    ])
+    const { errors } = compileGraph(g)
+    expect(errors.some((e) => e.code === 'presetVideoOnly')).toBe(true)
+  })
+
+  it('apng: -c:v apng with .apng ext', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const o = node({ kind: 'output', filename: 'out', format: 'apng' })
+    const g = graph([a, o], [edge(a.id, 'out-0', o.id, 'in-0')])
+    const { job, errors } = compileGraph(g)
+    expect(errors).toEqual([])
+    expect(job!.segments[0].args.join(' ')).toContain('-c:v apng')
+    expect(lastArg(job!)).toBe('out.apng')
+  })
+
+  it('legacy graphs: preset without format derives the container', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const lo = node({ kind: 'output', filename: 'lo', preset: 'lossless' })
+    const hi = node({ kind: 'output', filename: 'hi', preset: 'high' })
+    const g = graph([a, lo, hi], [
+      edge(a.id, 'out-0', lo.id, 'in-0'),
+      edge(a.id, 'out-0', lo.id, 'in-1'),
+      edge(a.id, 'out-0', hi.id, 'in-0'),
+      edge(a.id, 'out-0', hi.id, 'in-1'),
+    ])
+    const { job, errors } = compileGraph(g)
+    expect(errors).toEqual([])
+    const args = job!.segments[0].args.join(' ')
+    expect(args).toContain('-c:v ffv1')
+    expect(args).toContain('-c:a flac')
+    expect(args).toContain('lo.mkv')
+    expect(args).toContain('hi.mp4')
+  })
+
+  it('stage nodes accept the new formats and name mid files accordingly', () => {
+    const a = node({ kind: 'asset', assetRef: asset('a') })
+    const s = node({ kind: 'stage', filename: 'mid', format: 'webm' })
+    const o = node({ kind: 'output', filename: 'out', format: 'mp3' })
+    const g = graph([a, s, o], [
+      edge(a.id, 'out-0', s.id, 'in-0'),
+      edge(s.id, 'out-0', o.id, 'in-1'),
+    ])
+    const { job, errors } = compileGraph(g)
+    expect(errors).toEqual([])
+    expect(job!.segments).toHaveLength(2)
+    expect(lastArg(job!)).toBe('mid.webm')
+    // segment 2 reads the webm mid file and emits mp3
+    expect(job!.segments[1].inputs[0].file).toBe('mid.webm')
+    expect(lastArg(job!, 1)).toBe('out.mp3')
   })
 })

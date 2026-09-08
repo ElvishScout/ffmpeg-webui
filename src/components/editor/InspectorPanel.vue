@@ -8,9 +8,11 @@ import { useGraphStore } from '../../stores/graph'
 import { useAssetsStore } from '../../stores/assets'
 import { filterByName } from '../../filters/registry'
 import { nodeDisplayName } from '../../compiler/validate'
+import { FORMATS, formatOf } from '../../compiler/formats'
 import { matchCandidates } from '../../data/match'
 import ParamField from './ParamField.vue'
 import type { PortType } from '../../types/filter'
+import type { OutputFormat, WorkflowNode } from '../../types/graph'
 
 const { t, locale } = useI18n()
 const store = useGraphStore()
@@ -23,12 +25,50 @@ const spec = computed(() =>
     : undefined,
 )
 
-const presetOptions = computed(() => [
-  { value: 'lossless', label: t('inspector.presetLossless') },
-  { value: 'high', label: t('inspector.presetHigh') },
-  { value: 'fast', label: t('inspector.presetFast') },
-  { value: 'copy', label: t('inspector.presetCopy') },
-])
+// --- stage / output: format × strategy (orthogonal) ---
+const sinkFormat = computed<OutputFormat>(() => (node.value ? formatOf(node.value) : 'mp4'))
+
+const formatOptions = computed(() => {
+  const group = (key: string, labelKey: string, formats: OutputFormat[]) => ({
+    type: 'group' as const,
+    label: t(labelKey),
+    key,
+    children: formats.map((f) => ({ value: f, label: t(`inspector.format_${f}`) })),
+  })
+  return [
+    group('video', 'inspector.formatGroupVideo', ['mp4', 'mkv', 'webm', 'hevc', 'prores']),
+    group('audio', 'inspector.formatGroupAudio', ['mp3', 'm4a', 'flac', 'wav', 'opus']),
+    group('image', 'inspector.formatGroupImage', ['gif', 'apng']),
+  ]
+})
+
+const presetOptions = computed(() => {
+  const applicable = FORMATS[sinkFormat.value].presets
+  if (!applicable.length) return []
+  const label = (p: string) => t(`inspector.preset${p[0].toUpperCase()}${p.slice(1)}`)
+  return [
+    { value: '', label: t('inspector.presetDefault') },
+    ...applicable.map((p) => ({ value: p, label: label(p) })),
+  ]
+})
+
+function setFormat(v: OutputFormat) {
+  if (!node.value) return
+  const patch: Partial<WorkflowNode> = { format: v }
+  // reset a strategy the new format doesn't support (e.g. lossless on webm)
+  if (node.value.preset && !FORMATS[v].presets.includes(node.value.preset)) {
+    patch.preset = undefined
+  }
+  // follow the format's default extension unless the user picked a custom one
+  const fn = node.value.filename ?? ''
+  const oldExt = FORMATS[sinkFormat.value].ext
+  const newExt = FORMATS[v].ext
+  const m = fn.match(/^(.*)\.([a-z0-9]{2,5})$/i)
+  if (m && m[2].toLowerCase() === oldExt && oldExt !== newExt) {
+    patch.filename = `${m[1]}.${newExt}`
+  }
+  store.updateNode(node.value.id, patch)
+}
 
 function setParam(key: string, value: unknown) {
   if (!node.value) return
@@ -238,15 +278,34 @@ const fmtSize = (n: number) =>
         <NFormItem :label="t('inspector.filename')">
           <NInput
             :value="node.filename ?? ''"
-            :placeholder="node.kind === 'stage' ? 'mid.mkv' : 'output.mp4'"
+            :placeholder="`${node.kind === 'stage' ? 'mid' : 'output'}.${FORMATS[sinkFormat].ext}`"
             @update:value="(v: string) => store.updateNode(node!.id, { filename: v })"
           />
         </NFormItem>
-        <NFormItem :label="t('inspector.preset')">
+        <NFormItem :label="t('inspector.format')">
           <NSelect
-            :value="node.preset ?? 'high'"
+            :value="sinkFormat"
+            :options="formatOptions"
+            @update:value="(v: OutputFormat) => setFormat(v)"
+          />
+        </NFormItem>
+        <NFormItem v-if="presetOptions.length" :label="t('inspector.preset')">
+          <NSelect
+            :value="node.preset ?? ''"
             :options="presetOptions"
-            @update:value="(v: string) => store.updateNode(node!.id, { preset: v as never })"
+            @update:value="(v: string) => store.updateNode(node!.id, { preset: (v || undefined) as never })"
+          />
+        </NFormItem>
+        <NFormItem v-if="sinkFormat === 'gif'" :label="t('inspector.gifFps')">
+          <NInputNumber
+            :value="node.gifFps ?? 15" :min="1" :max="60"
+            @update:value="(v: number | null) => store.updateNode(node!.id, { gifFps: v ?? undefined })"
+          />
+        </NFormItem>
+        <NFormItem v-if="sinkFormat === 'gif'" :label="t('inspector.gifWidth')">
+          <NInputNumber
+            :value="node.gifWidth ?? 480" :min="16" :max="3840"
+            @update:value="(v: number | null) => store.updateNode(node!.id, { gifWidth: v ?? undefined })"
           />
         </NFormItem>
         <NFormItem :label="t('inspector.audioPads')">

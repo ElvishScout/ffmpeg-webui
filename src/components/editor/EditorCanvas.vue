@@ -105,15 +105,15 @@ function onDrop(event: DragEvent) {
     )
   } else if (parsed.type === 'filter') {
     store.addNode({ kind: 'filter', filterName: parsed.name, params: {}, position })
+  } else if (parsed.kind === 'stage' || parsed.kind === 'output') {
+    store.addSinkNode(parsed.kind, 'mp4', position)
   } else {
     store.addNode({
       kind: parsed.kind,
       position,
       ...(parsed.kind === 'raw'
         ? { rawFilter: '', rawInputs: ['video' as const], rawOutputs: ['video' as const] }
-        : parsed.kind === 'source'
-          ? { sourceFilter: '', sourceOutputs: ['video' as const] }
-          : { preset: 'high' as const, filename: '' }),
+        : { sourceFilter: '', sourceOutputs: ['video' as const] }),
     })
   }
 }

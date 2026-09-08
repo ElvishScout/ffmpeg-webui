@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { matchCandidates, missingRefs } from './match'
-import type { AssetMeta } from './db'
-import type { AssetRef } from '../types/graph'
+import { matchCandidates, missingRefs } from '../src/data/match'
+import type { AssetMeta } from '../src/data/db'
+import type { AssetRef } from '../src/types/graph'
 
 const meta = (id: string, filename: string, size: number, mime = 'video/mp4'): AssetMeta => ({
   id, filename, size, mime, kind: 'video', createdAt: 0,

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { migrateGraph, MigrationError } from './migrate'
-import { exportWorkflow, importWorkflow } from './io'
-import type { WorkflowGraph } from '../types/graph'
+import { migrateGraph, MigrationError } from '../src/workflow/migrate'
+import { exportWorkflow, importWorkflow } from '../src/workflow/io'
+import type { WorkflowGraph } from '../src/types/graph'
 
 const g = (over: Partial<WorkflowGraph> = {}): WorkflowGraph => ({
   schemaVersion: 1,

@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>encoder hang probe</title></head>
+<body>
+<pre id="out">probe ready</pre>
+<script type="module">
+// Focused probe: one encode at a time with FULL ffmpeg logging so we can see
+// exactly where vp9 / x265 / prores stall inside the wasm core.
+import { spawnCoreWorker } from '/src/executor/wasm.ts'
+
+const out = document.getElementById('out')
+const log = (...a) => {
+  const line = a.map(String).join(' ')
+  out.textContent += '\n' + line
+  console.log('[probe]', line)
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const FT = ['-filter_threads', '1', '-filter_complex_threads', '1']
+const V = ['-f', 'lavfi', '-i', 'testsrc=duration=1:size=320x240:rate=15']
+const A = ['-f', 'lavfi', '-i', 'sine=frequency=440:duration=1']
+
+const variants = [
+  // single AV input (testsrc2 has video+ audio) vs two lavfi inputs with x264
+  // as control: is the hang lavfi-two-input specific or encoder specific?
+  ['x264-two-lavfi', [...V, ...A, '-c:v', 'libx264', '-crf', '23', '-c:a', 'aac', '-shortest', ...FT, 'out.mp4']],
+  ['vp8-testsrc2', ['-f', 'lavfi', '-i', 'testsrc2=duration=1:size=320x240:rate=15', '-map', '0:v', '-map', '0:a', '-c:v', 'libvpx', '-crf', '10', '-b:v', '1M', '-pix_fmt', 'yuv420p', '-c:a', 'libopus', '-b:a', '128k', '-threads', '1', ...FT, 'out.webm']],
+  ['prores-testsrc2', ['-f', 'lavfi', '-i', 'testsrc2=duration=1:size=320x240:rate=15', '-map', '0:v', '-map', '0:a', '-c:v', 'prores_ks', '-profile:v', '3', '-c:a', 'pcm_s16le', '-threads', '1', ...FT, 'out.mov']],
+]
+
+async function runVariant(name, args, timeoutMs = 60000) {
+  log(`=== ${name} ===`)
+  const worker = await spawnCoreWorker()
+  try {
+    worker.setHandlers({ onLog: (m) => log('  |', m.trim().slice(0, 180)) })
+    const result = await Promise.race([
+      worker.call('exec', { args }),
+      sleep(timeoutMs).then(() => ({ timeout: true })),
+    ])
+    log(`RESULT ${name}: ${result.timeout ? `HUNG after ${timeoutMs / 1000}s` : `exit=${result.code}`}`)
+    return !result.timeout && result.code === 0
+  } finally {
+    worker.terminate()
+  }
+}
+
+async function main() {
+  const summary = []
+  for (const [name, args] of variants) {
+    summary.push(`${(await runVariant(name, args)) ? 'PASS' : 'FAIL'} ${name}`)
+  }
+  log('=== SUMMARY ===')
+  for (const s of summary) log(s)
+  log('PROBE DONE')
+}
+
+main().catch((e) => { log('FATAL', e.message); console.log('[probe] PROBE DONE') })
+</script>
+</body>
+</html>

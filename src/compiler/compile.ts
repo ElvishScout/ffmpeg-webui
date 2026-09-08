@@ -1,6 +1,7 @@
-import type { WorkflowGraph, WorkflowNode, EncodePreset, AssetRef } from '../types/graph'
+import type { WorkflowGraph, WorkflowNode, WorkflowEdge, AssetRef } from '../types/graph'
 import type { Job, JobSegment, JobInput, JobOutput } from '../types/job'
 import { filterByName } from '../filters/registry'
+import { FORMATS, formatOf, codecArgs } from './formats'
 import {
   validateGraph,
   topoSort,
@@ -53,32 +54,6 @@ export function serializeFilter(node: WorkflowNode): string {
     parts.push(`${p.key}=${escapeFilterValue(String(value))}`)
   }
   return parts.length ? `${spec.name}=${parts.join(':')}` : spec.name
-}
-
-const PRESETS: Record<
-  EncodePreset,
-  { videoArgs: string[]; audioArgs: string[]; ext: string }
-> = {
-  lossless: {
-    videoArgs: ['-c:v', 'ffv1'],
-    audioArgs: ['-c:a', 'flac'],
-    ext: 'mkv',
-  },
-  high: {
-    videoArgs: ['-c:v', 'libx264', '-crf', '18', '-preset', 'medium', '-pix_fmt', 'yuv420p'],
-    audioArgs: ['-c:a', 'aac', '-b:a', '192k'],
-    ext: 'mp4',
-  },
-  fast: {
-    videoArgs: ['-c:v', 'libx264', '-crf', '28', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p'],
-    audioArgs: ['-c:a', 'aac', '-b:a', '128k'],
-    ext: 'mp4',
-  },
-  copy: {
-    videoArgs: ['-c:v', 'copy'],
-    audioArgs: ['-c:a', 'copy'],
-    ext: 'mkv',
-  },
 }
 
 function ensureExt(filename: string, ext: string): string {
@@ -187,7 +162,7 @@ export function compileGraph(graph: WorkflowGraph, opts: CompileOptions = {}): C
       } else {
         const node = src // stage
         inputs.push({
-          file: ensureExt(sanitizeFilename(node.filename ?? `mid_${node.id}`), PRESETS[node.preset ?? 'high'].ext),
+          file: ensureExt(sanitizeFilename(node.filename ?? `mid_${node.id}`), FORMATS[formatOf(node)].ext),
           source: { kind: 'stage', nodeId: node.id },
         })
       }
@@ -206,11 +181,12 @@ export function compileGraph(graph: WorkflowGraph, opts: CompileOptions = {}): C
     // label per (nodeId, outPad) within this segment
     const label = new Map<string, string>()
     let labelCounter = 0
+    const freshLabel = () => `n${labelCounter++}`
     const labelFor = (nodeId: string, pad: number) => {
       const key = `${nodeId}:${pad}`
       let l = label.get(key)
       if (!l) {
-        l = `n${labelCounter++}`
+        l = freshLabel()
         label.set(key, l)
       }
       return l
@@ -268,33 +244,66 @@ export function compileGraph(graph: WorkflowGraph, opts: CompileOptions = {}): C
       }
       args.push('-i', input.file)
     }
-    if (chains.length) args.push('-filter_complex', chains.join(';'))
 
-    for (const sink of sinks) {
-      const preset = PRESETS[sink.preset ?? 'high']
+    const mapRef = (e: WorkflowEdge, letter: 'v' | 'a'): string => {
+      const src = byId.get(e.source)!
+      if (src.kind === 'filter' || src.kind === 'raw' || src.kind === 'source') {
+        return `[${labelFor(src.id, Number(e.sourceHandle.replace('out-', '')))}]`
+      }
+      return `${ensureInput(e.source)}:${streamSpec(e.source, letter)}`
+    }
+
+    // Pre-pass: build one plan per sink. gif sinks append a palette chain to
+    // `chains`, so this must run before -filter_complex is emitted.
+    interface SinkPlan {
+      sink: (typeof sinks)[number]
+      maps: string[]
+      hasVideo: boolean
+      hasAudio: boolean
+    }
+    const sinkPlans: SinkPlan[] = sinks.map((sink) => {
       const sinkEdges = incoming.get(sink.id) ?? []
       const sinkPads = inputPads(sink)
-      const mapRef = (e: (typeof sinkEdges)[number], letter: 'v' | 'a'): string => {
-        const src = byId.get(e.source)!
-        if (src.kind === 'filter' || src.kind === 'raw' || src.kind === 'source') {
-          return `[${labelFor(src.id, Number(e.sourceHandle.replace('out-', '')))}]`
-        }
-        return `${ensureInput(e.source)}:${streamSpec(e.source, letter)}`
-      }
-      let hasVideo = false
-      let hasAudio = false
+      const plan: SinkPlan = { sink, maps: [], hasVideo: false, hasAudio: false }
       for (let i = 0; i < sinkPads.length; i++) {
         const e = sinkEdges.find((x) => x.targetHandle === `in-${i}`)
         if (!e) continue
         const letter = sinkPads[i].type === 'audio' ? 'a' : 'v'
-        args.push('-map', mapRef(e, letter))
-        if (letter === 'v') hasVideo = true
-        else hasAudio = true
+        const ref = mapRef(e, letter)
+        if (formatOf(sink) === 'gif' && letter === 'v') {
+          // two-pass palette in one command: fps/scale -> split -> palettegen + paletteuse
+          const srcRef = ref.startsWith('[') ? ref : `[${ref}]`
+          const a = freshLabel()
+          const b = freshLabel()
+          const p = freshLabel()
+          const g = freshLabel()
+          const fps = sink.gifFps ?? 15
+          const w = sink.gifWidth ?? 480
+          chains.push(
+            `${srcRef}fps=${fps},scale=${w}:-1:flags=lanczos,split[${a}][${b}];` +
+              `[${a}]palettegen[${p}];[${b}][${p}]paletteuse[${g}]`,
+          )
+          plan.maps.push(`[${g}]`)
+        } else {
+          plan.maps.push(ref)
+        }
+        if (letter === 'v') plan.hasVideo = true
+        else plan.hasAudio = true
       }
-      if (hasVideo) args.push(...preset.videoArgs)
-      if (hasAudio) args.push(...preset.audioArgs)
+      return plan
+    })
+
+    if (chains.length) args.push('-filter_complex', chains.join(';'))
+
+    for (const plan of sinkPlans) {
+      const { sink } = plan
+      const format = formatOf(sink)
+      const codec = codecArgs(format, sink.preset)
+      for (const m of plan.maps) args.push('-map', m)
+      if (plan.hasVideo) args.push(...codec.video)
+      if (plan.hasAudio) args.push(...codec.audio)
       if (sink.advancedArgs?.trim()) args.push(...splitArgs(sink.advancedArgs))
-      const file = ensureExt(sanitizeFilename(sink.filename!.trim()), preset.ext)
+      const file = ensureExt(sanitizeFilename(sink.filename!.trim()), FORMATS[format].ext)
       args.push(file)
       outputs.push({
         file,

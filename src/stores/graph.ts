@@ -5,6 +5,8 @@ import type { PortType } from '../types/filter'
 import { SCHEMA_VERSION } from '../types/graph'
 import { validateGraph, inputPads, outputPads, portsCompatible } from '../compiler/validate'
 import { compileGraph, type CompileResult } from '../compiler/compile'
+import { FORMATS } from '../compiler/formats'
+import type { OutputFormat } from '../types/graph'
 import { useAssetsStore } from './assets'
 import { missingRefs } from '../data/match'
 
@@ -70,6 +72,27 @@ export const useGraphStore = defineStore('graph', () => {
     nodes.value.push(n)
     revision.value++
     return n
+  }
+
+  /**
+   * Default filename for a new sink node: `output.<ext>` / `mid.<ext>`,
+   * suffixed (_2, _3, …) until it no longer collides with an existing sink.
+   */
+  function nextSinkFilename(kind: 'stage' | 'output', format: OutputFormat = 'mp4'): string {
+    const base = kind === 'stage' ? 'mid' : 'output'
+    const ext = FORMATS[format].ext
+    const taken = new Set(
+      nodes.value
+        .filter((n) => (n.kind === 'stage' || n.kind === 'output') && n.filename)
+        .map((n) => n.filename!),
+    )
+    let name = `${base}.${ext}`
+    for (let i = 2; taken.has(name); i++) name = `${base}_${i}.${ext}`
+    return name
+  }
+
+  function addSinkNode(kind: 'stage' | 'output', format: OutputFormat = 'mp4', position?: { x: number; y: number }) {
+    return addNode({ kind, format, filename: nextSinkFilename(kind, format), position })
   }
 
   function addAssetNode(ref: AssetRef, position?: { x: number; y: number }) {
@@ -150,7 +173,7 @@ export const useGraphStore = defineStore('graph', () => {
     name, nodes, edges, selectedId, revision,
     graph, validation, missingAssetIds,
     compile, load, clear,
-    addNode, addAssetNode, updateNode, updateParam, removeNode,
+    addNode, addAssetNode, addSinkNode, nextSinkFilename, updateNode, updateParam, removeNode,
     removeEdge, addEdge, canConnect, remapAsset, padTypes,
   }
 })
