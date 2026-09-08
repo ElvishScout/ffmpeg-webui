@@ -98,10 +98,8 @@ function parseTimeSeconds(line: string): number | null {
  * threading: any run that builds a filtergraph — including the implicit simple
  * one inserted for every re-encode — freezes at encoder init. Forcing
  * single-threaded filtergraphs avoids it; decode and x264 stay multithreaded.
- * Repro matrix: repro.html + scripts/repro-hang.mjs.
  *
- * More encoder-specific core-mt workarounds, verified by
- * probe-encoder.html + scripts/probe-encoder.mjs:
+ * More encoder-specific core-mt workarounds, verified empirically:
  * - prores_ks / libvpx (VP8): hang with the default 18-thread pool -> -threads 1
  * - libx265: its internal pool ignores -threads; needs -x265-params pools=1
  * Native ffmpeg doesn't need any of this, so it lives here, not in the
