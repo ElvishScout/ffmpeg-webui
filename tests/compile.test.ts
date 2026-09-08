@@ -237,7 +237,7 @@ describe("compileGraph", () => {
     expect(fc).toMatch(/^\[0:v\]\[1:v\]concat=n=2:v=1:a=0\[n\d\]$/);
   });
 
-  it("adds -loop 1 for image inputs", () => {
+  it("keeps image-only outputs single-frame (a loop would never terminate)", () => {
     const a = node({
       kind: "asset",
       assetRef: { id: "img", filename: "p.png", size: 1, mime: "image/png" },
@@ -245,7 +245,31 @@ describe("compileGraph", () => {
     const o = node({ kind: "output", filename: "out" });
     const g = graph([a, o], [edge(a.id, "out-0", o.id, "in-0")]);
     const { job } = compileGraph(g);
-    expect(job!.segments[0].args.join(" ")).toContain("-loop 1 -framerate 30 -i in0.png");
+    const args = job!.segments[0].args.join(" ");
+    expect(args).not.toContain("-loop");
+    expect(args).not.toContain("-shortest");
+    expect(args).toContain("-i in0.png");
+  });
+
+  it("loops images bounded by a finite input and adds -shortest", () => {
+    const img = node({
+      kind: "asset",
+      assetRef: { id: "img", filename: "p.png", size: 1, mime: "image/png" },
+    });
+    const au = node({
+      kind: "asset",
+      assetRef: { id: "au", filename: "a.mp3", size: 1, mime: "audio/mpeg" },
+    });
+    const o = node({ kind: "output", filename: "out" });
+    const g = graph(
+      [img, au, o],
+      [edge(img.id, "out-0", o.id, "in-0"), edge(au.id, "out-0", o.id, "in-1")],
+    );
+    const { job, errors } = compileGraph(g);
+    expect(errors).toEqual([]);
+    const args = job!.segments[0].args.join(" ");
+    expect(args).toContain("-loop 1 -framerate 30 -i in0.png");
+    expect(args).toContain("-shortest");
   });
 
   it("does not add -loop for animated images (gif demuxer rejects it)", () => {

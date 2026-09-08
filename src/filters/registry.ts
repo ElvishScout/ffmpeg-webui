@@ -156,6 +156,13 @@ export const SOURCE_PRESETS: SourceSpec[] = [
 
 export const sourceByName = new Map(SOURCE_PRESETS.map((s) => [s.name, s]));
 
+/** Instantiate a spec's params with their declared defaults (used when creating preset nodes). */
+export function defaultParams(spec: { params: ParamSpec[] }): Record<string, unknown> {
+  return Object.fromEntries(
+    spec.params.filter((p) => p.default !== undefined).map((p) => [p.key, p.default]),
+  );
+}
+
 const v = { type: "video" } as const;
 const a = { type: "audio" } as const;
 

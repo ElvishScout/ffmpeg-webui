@@ -197,6 +197,41 @@ export function compileGraph(graph: WorkflowGraph, opts: CompileOptions = {}): C
       if (segNodeIds.has(e.target) || sinkIds.has(e.target)) ensureInput(e.source);
     }
 
+    // A static image with -loop 1 is an infinite stream: fed straight into an
+    // output it would run forever. Loop an image only when the sink it reaches
+    // also has a finite input, and bound that output with -shortest; an image
+    // reaching only unbounded sinks stays a single frame (native ffmpeg behavior).
+    const isLoopableImage = (input: JobInput) =>
+      input.source.kind === "asset" &&
+      isImage(input.source.asset.mime) &&
+      !isAnimatedImage(input.source.asset) &&
+      input.streamLoop === undefined;
+    const loopImages = new Set<number>();
+    const shortestSinks = new Set<string>();
+    for (const sink of sinks) {
+      const idxs = new Set<number>();
+      const seen = new Set<string>();
+      const stack = [sink.id];
+      while (stack.length) {
+        const id = stack.pop()!;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        for (const e of incoming.get(id) ?? []) {
+          const key = inputKeyForEdgeSource(e.source);
+          const idx = key !== null ? inputIndex.get(key) : undefined;
+          if (idx !== undefined) idxs.add(idx);
+          stack.push(e.source);
+        }
+      }
+      if (![...idxs].some((i) => !isLoopableImage(inputs[i]))) continue; // no finite bound
+      for (const i of idxs) {
+        if (isLoopableImage(inputs[i])) {
+          loopImages.add(i);
+          shortestSinks.add(sink.id);
+        }
+      }
+    }
+
     // --- filtergraph ---
     // label per (nodeId, outPad) within this segment
     const label = new Map<string, string>();
@@ -249,13 +284,9 @@ export function compileGraph(graph: WorkflowGraph, opts: CompileOptions = {}): C
     // --- outputs (one set of args per sink) ---
     const outputs: JobOutput[] = [];
     const args: string[] = ["-y"];
-    for (const input of inputs) {
+    for (const [idx, input] of inputs.entries()) {
       if (input.source.kind === "asset") {
-        if (
-          isImage(input.source.asset.mime) &&
-          !isAnimatedImage(input.source.asset) &&
-          input.streamLoop === undefined
-        ) {
+        if (loopImages.has(idx)) {
           args.push("-loop", "1", "-framerate", "30");
         }
         if (input.streamLoop !== undefined) args.push("-stream_loop", String(input.streamLoop));
@@ -328,6 +359,7 @@ export function compileGraph(graph: WorkflowGraph, opts: CompileOptions = {}): C
       if (plan.hasVideo) args.push(...codec.video);
       if (plan.hasAudio) args.push(...codec.audio);
       if (sink.advancedArgs?.trim()) args.push(...splitArgs(sink.advancedArgs));
+      if (shortestSinks.has(sink.id)) args.push("-shortest");
       const file = ensureExt(sanitizeFilename(sink.filename!.trim()), FORMATS[format].ext);
       args.push(file);
       outputs.push({

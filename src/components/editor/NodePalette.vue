@@ -8,6 +8,7 @@ import {
   FILTER_CATEGORIES,
   SPECIAL_NODES,
   SOURCE_PRESETS,
+  defaultParams,
   type SourceSpec,
 } from "../../filters/registry";
 import { useGraphStore } from "../../stores/graph";
@@ -73,7 +74,7 @@ function add(item: PaletteItem) {
     store.addNode({
       kind: "source",
       filterName: item.source.name,
-      params: {},
+      params: defaultParams(item.source),
     });
   } else if (item.customSource) {
     store.addNode({

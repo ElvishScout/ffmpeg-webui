@@ -14,6 +14,7 @@ import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
 import FlowNode from "./FlowNode.vue";
 import { useGraphStore } from "../../stores/graph";
+import { sourceByName, defaultParams } from "../../filters/registry";
 import type { WorkflowEdge } from "../../types/graph";
 
 const store = useGraphStore();
@@ -127,11 +128,12 @@ function onDrop(event: DragEvent) {
       position,
     });
   } else if (parsed.type === "source") {
+    const spec = parsed.name ? sourceByName.get(parsed.name) : undefined;
     store.addNode({
       kind: "source",
       position,
-      ...(parsed.name
-        ? { filterName: parsed.name, params: {} }
+      ...(spec
+        ? { filterName: spec.name, params: defaultParams(spec) }
         : { sourceFilter: "", sourceOutputs: ["video" as const] }),
     });
   } else if (parsed.kind === "stage" || parsed.kind === "output") {
