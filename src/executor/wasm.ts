@@ -10,11 +10,35 @@ import type { Job, ExecEvents, ProducedFile } from "../types/job";
 // classic script. One URL cannot be both. We therefore skip the wrapper and
 // drive the UMD core from our own classic worker, loaded from a Blob.
 
-// Production ships the wasm core as .wasm.br (brotli, ~10MiB vs ~31MiB raw)
-// to stay under Cloudflare's 25MiB per-asset limit; the platform serves it
-// with Content-Encoding: br (public/_headers) and fetch() decompresses
-// transparently before the Blob is created. Dev has no .br — use the raw file.
-const coreWasmURL = import.meta.env.PROD ? `${wasmURLraw}.br` : wasmURLraw;
+// Production ships the wasm core gzipped (.wasm.gz, ~10MiB vs ~31MiB raw) to
+// stay under Cloudflare's 25MiB per-asset limit. We decompress in JS rather
+// than relying on Content-Encoding: Cloudflare strips that header when set
+// via _headers, and vite preview's static server is unpredictable about it —
+// it may serve the .gz raw, transport-decoded (body is already wasm), or
+// double-encoded. So ignore headers and sniff magic bytes instead: peel gzip
+// (1f 8b) until wasm magic (00 61 73 6d) shows up.
+async function wasmBlobURL(): Promise<string> {
+  if (!import.meta.env.PROD) return toBlobURL(wasmURLraw, "application/wasm");
+  const res = await fetch(`${wasmURLraw}.gz`);
+  if (!res.ok)
+    throw new Error(`failed to fetch ${wasmURLraw}.gz: ${res.status}`);
+  let buf = new Uint8Array(await res.arrayBuffer());
+  for (let i = 0; i < 2 && buf[0] === 0x1f && buf[1] === 0x8b; i++) {
+    buf = new Uint8Array(
+      await new Response(
+        new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip")),
+      ).arrayBuffer(),
+    );
+  }
+  if (
+    buf[0] !== 0x00 ||
+    buf[1] !== 0x61 ||
+    buf[2] !== 0x73 ||
+    buf[3] !== 0x6d
+  )
+    throw new Error("ffmpeg core wasm failed to decompress");
+  return URL.createObjectURL(new Blob([buf], { type: "application/wasm" }));
+}
 
 export const sabSupported =
   typeof SharedArrayBuffer !== "undefined" &&
@@ -157,7 +181,7 @@ interface CoreWorker {
 export async function spawnCoreWorker(onLog?: (m: string) => void): Promise<CoreWorker> {
   const [core, wasm, pthread] = await Promise.all([
     toBlobURL(coreURLumd, "text/javascript"),
-    toBlobURL(coreWasmURL, "application/wasm"),
+    wasmBlobURL(),
     toBlobURL(workerURLumd, "text/javascript"),
   ]);
   const workerURL = URL.createObjectURL(
