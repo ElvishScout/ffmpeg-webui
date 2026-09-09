@@ -10,6 +10,12 @@ import type { Job, ExecEvents, ProducedFile } from "../types/job";
 // classic script. One URL cannot be both. We therefore skip the wrapper and
 // drive the UMD core from our own classic worker, loaded from a Blob.
 
+// Production ships the wasm core as .wasm.br (brotli, ~10MiB vs ~31MiB raw)
+// to stay under Cloudflare's 25MiB per-asset limit; the platform serves it
+// with Content-Encoding: br (public/_headers) and fetch() decompresses
+// transparently before the Blob is created. Dev has no .br — use the raw file.
+const coreWasmURL = import.meta.env.PROD ? `${wasmURLraw}.br` : wasmURLraw;
+
 export const sabSupported =
   typeof SharedArrayBuffer !== "undefined" &&
   typeof crossOriginIsolated !== "undefined" &&
@@ -151,7 +157,7 @@ interface CoreWorker {
 export async function spawnCoreWorker(onLog?: (m: string) => void): Promise<CoreWorker> {
   const [core, wasm, pthread] = await Promise.all([
     toBlobURL(coreURLumd, "text/javascript"),
-    toBlobURL(wasmURLraw, "application/wasm"),
+    toBlobURL(coreWasmURL, "application/wasm"),
     toBlobURL(workerURLumd, "text/javascript"),
   ]);
   const workerURL = URL.createObjectURL(
