@@ -1,4 +1,4 @@
-# ffmpeg-webui
+# FFmpeg WebUI
 
 纯前端 ffmpeg 可视化节点编辑器。用节点图描述处理流程，编译为 ffmpeg 命令并在浏览器内（ffmpeg-wasm）执行。
 

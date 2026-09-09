@@ -4,7 +4,7 @@ export default {
     cancel: "Cancel",
   },
   app: {
-    title: "ffmpeg-webui",
+    title: "FFmpeg WebUI",
     run: "Run",
     cancel: "Cancel",
     running: "Running…",

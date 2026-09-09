@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c1c22"/>
+      <stop offset="1" stop-color="#101014"/>
+    </linearGradient>
+    <linearGradient id="fg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4ade80"/>
+      <stop offset="1" stop-color="#60a5fa"/>
+    </linearGradient>
+  </defs>
+
+  <!-- tile -->
+  <rect x="0" y="0" width="64" height="64" rx="16" fill="url(#bg)" />
+
+  <!-- FF monogram, slightly italic -->
+  <g transform="translate(6 0) skewX(-10)" stroke="url(#fg)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M 28 18 H 15 V 46 M 15 31 H 25"/>
+    <path d="M 49 18 H 36 V 46 M 36 31 H 46"/>
+  </g>
+</svg>
